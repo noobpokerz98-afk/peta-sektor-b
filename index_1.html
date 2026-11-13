@@ -115,6 +115,8 @@ h2{font-family:var(--display);font-size:13px;letter-spacing:.08em;text-transform
 .tbl{width:100%;border-collapse:collapse;font-size:13px}
 .tbl td,.tbl th{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left}
 .tbl th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.gmap{color:var(--accent);font-weight:600;text-decoration:none;white-space:nowrap}
+.gmap:hover{text-decoration:underline}
 .tbl td.n{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
 /* phone */
 @media (max-width:820px){
@@ -449,6 +451,26 @@ function parseGR(base,raw){ const d=(raw||'').replace(/\D/g,'');
   return {E,N}; }
 function baseOfSheet(k){ return k&&k.startsWith('AH')?'AH':'AG'; }
 function cellId(E,N){ return 'c'+Math.floor(E)+'_'+Math.floor(N); }
+/* Grid km -> lat/long. Blue 1 km grid of MY512A = GDM2000 East Malaysia BRSO (EPSG:3376, Hotine Oblique Mercator variant A, GRS80).
+   Full metres: easting = (E+100)*1000, northing = (N+100)*1000 (AG sheets start at 100 000 m E / 100 000 m N). GDM2000 ~ WGS84 for Google Maps. */
+const RSO=(()=>{ const a=6378137, f=1/298.257222101, e2=2*f-f*f, e=Math.sqrt(e2), d=Math.PI/180;
+  const pc=4*d, lc=115*d, ac=(53+18/60+56.9537/3600)*d, gc=(53+7/60+48.3685/3600)*d, kc=0.99984;
+  const B=Math.sqrt(1+e2*Math.cos(pc)**4/(1-e2)), A=a*B*kc*Math.sqrt(1-e2)/(1-e2*Math.sin(pc)**2);
+  const t0=Math.tan(Math.PI/4-pc/2)/((1-e*Math.sin(pc))/(1+e*Math.sin(pc)))**(e/2);
+  const D=B*Math.sqrt(1-e2)/(Math.cos(pc)*Math.sqrt(1-e2*Math.sin(pc)**2)), F=D+Math.sqrt(Math.max(D*D-1,0));
+  const H=F*t0**B, G=(F-1/F)/2, g0=Math.asin(Math.sin(ac)/D), l0=lc-Math.asin(G*Math.tan(g0))/B;
+  return {B,A,H,g0,l0,gc,e2,d}; })();
+function toLatLon(E,N){ const {B,A,H,g0,l0,gc,e2,d}=RSO, x=(E+100)*1000, y=(N+100)*1000;
+  const v=x*Math.cos(gc)-y*Math.sin(gc), u=y*Math.cos(gc)+x*Math.sin(gc);
+  const Q=Math.exp(-B*v/A), S=(Q-1/Q)/2, T=(Q+1/Q)/2, V=Math.sin(B*u/A), U=(V*Math.cos(g0)+S*Math.sin(g0))/T;
+  const t=(H/Math.sqrt((1+U)/(1-U)))**(1/B), c=Math.PI/2-2*Math.atan(t);
+  const lat=c+Math.sin(2*c)*(e2/2+5*e2**2/24+e2**3/12+13*e2**4/360)+Math.sin(4*c)*(7*e2**2/48+29*e2**3/240+811*e2**4/11520)
+    +Math.sin(6*c)*(7*e2**3/120+81*e2**4/1120)+Math.sin(8*c)*(4279*e2**4/161280);
+  const lon=l0-Math.atan((S*Math.cos(g0)-V*Math.sin(g0))/Math.cos(B*u/A))/B;
+  return [lat/d, lon/d]; }
+function llText(E,N){ const [la,lo]=toLatLon(E,N); return la.toFixed(5)+', '+lo.toFixed(5); }
+function gmapsUrl(E,N){ const [la,lo]=toLatLon(E,N); return 'https://www.google.com/maps/search/?api=1&query='+la.toFixed(6)+'%2C'+lo.toFixed(6); }
+function gmapsLink(E,N,txt){ return '<a class="gmap" href="'+gmapsUrl(E,N)+'" target="_blank" rel="noopener">'+(txt||'Buka di Google Maps')+' ↗</a>'; }
 function cellRef(ix,iy){ const em=ix-(ix>=100?100:0), nm=iy>=0?iy:iy+100; const s=sheetAt(ix+0.5,iy+0.5);
   return String(em).padStart(2,'0')+String(nm).padStart(2,'0')+(s?' ('+s.k+')':''); }
 
@@ -477,7 +499,7 @@ function showPick(E,N){ if(pickMarker) pickMarker.remove();
   pickMarker=L.circleMarker([N,E],{radius:9,color:'#d4561c',weight:3,fill:false}).addTo(map); }
 
 map.on('mousemove',e=>{ const E=e.latlng.lng,N=e.latlng.lat;
-  $('cursorGr').textContent = inside(E,N) ? grLabel(E,N)+'  ·  petak '+cellRef(Math.floor(E),Math.floor(N)) : 'Di luar kawasan peta'; });
+  $('cursorGr').textContent = inside(E,N) ? grLabel(E,N)+'  ·  petak '+cellRef(Math.floor(E),Math.floor(N))+'  ·  '+llText(E,N) : 'Di luar kawasan peta'; });
 function inside(E,N){ return E>=BOUNDS[0][1]&&E<=BOUNDS[1][1]&&N>=BOUNDS[0][0]&&N<=BOUNDS[1][0]; }
 
 /* ---- UI state ---- */
@@ -501,7 +523,7 @@ map.on('click',e=>{ const E=e.latlng.lng,N=e.latlng.lat; if(!inside(E,N)) return
 function clearMsg(){ $('titikErr').hidden=true; $('titikOk').hidden=true; }
 function msg(id,t){ const el=$(id); el.textContent=t; el.hidden=false; }
 function titikBase(){ const l=$('fLembar').value; return l==='auto'?SEK_BASE[$('fSek').value]:baseOfSheet(l); }
-function showWhere(E,N){ const w=$('fWhere'); w.hidden=false; w.innerHTML='Lokasi: <b>'+esc(sheetName(E,N))+'</b> · petak '+esc(cellRef(Math.floor(E),Math.floor(N))); }
+function showWhere(E,N){ const w=$('fWhere'); w.hidden=false; w.innerHTML='Lokasi: <b>'+esc(sheetName(E,N))+'</b> · petak '+esc(cellRef(Math.floor(E),Math.floor(N)))+'<br>'+llText(E,N)+' · '+gmapsLink(E,N); }
 $('btnLihat').onclick=()=>{ clearMsg(); const p=parseGR(titikBase(),$('fGr').value); if(p.err) return msg('titikErr',p.err);
   showPick(p.E,p.N); showWhere(p.E,p.N); map.flyTo([p.N,p.E],Math.max(map.getZoom(),7),{duration:.6}); };
 $('formTitik').addEventListener('submit',async ev=>{ ev.preventDefault(); clearMsg();
@@ -589,6 +611,7 @@ function renderDetail(){ const m=marks.find(x=>x.id===selected), el=$('selDetail
   el.innerHTML='<h2>'+esc(KAT[m.kategori]||'Titik')+(m.sektor?' · Sektor '+esc(m.sektor):'')+'</h2>'+
     '<div style="font-weight:700;font-size:17px">'+esc(m.nama)+'</div><div class="gr">GR '+fmtGR(m.E,m.N,6)+'</div><div>Lembar '+esc(sheetName(m.E,m.N))+'</div>'+
     '<div class="m" style="font:12px var(--mono);color:var(--muted)">Petak '+cellRef(Math.floor(m.E),Math.floor(m.N))+(m.masa?' · '+esc(m.masa.slice(0,10)):'')+'</div>'+
+    '<div style="font:12px var(--mono)">'+llText(m.E,m.N)+'</div><div>'+gmapsLink(m.E,m.N)+'</div>'+
     (m.tarikhK?'<div><b>Kejadian:</b> '+esc(fmtTarikh(m.tarikhK))+(m.masaK?', jam '+esc(m.masaK):'')+'</div>':(perluWaktu(m.kategori)?'<p class="hint">Tarikh dan masa kejadian belum diisi. Tekan Kemaskini.</p>':''))+
     (m.catatan?'<p class="hint" style="color:var(--ink)">'+esc(m.catatan)+'</p>':'')+
     '<div class="actions"><button class="btn ghost" id="dTutup" type="button">Tutup</button>'+
@@ -599,14 +622,14 @@ function renderDetail(){ const m=marks.find(x=>x.id===selected), el=$('selDetail
     try{ await db.collection('marks').doc(m.id).delete(); selected=null; el.hidden=true; } catch(e){ writeFail(e,'dErr'); } }; }
 
 /* ---- export ---- */
-function csv(){ const rows=[['Nama','Kategori','Sektor','GR','Lembar peta','Petak','Catatan','Tarikh simpan','Tarikh kejadian','Masa kejadian']].concat(marks.map(m=>[m.nama,KAT[m.kategori]||'',m.sektor||'',fmtGR(m.E,m.N,6),sheetName(m.E,m.N),cellRef(Math.floor(m.E),Math.floor(m.N)),m.catatan||'',(m.masa||'').slice(0,10),m.tarikhK||'',m.masaK||'']));
+function csv(){ const rows=[['Nama','Kategori','Sektor','GR','Lembar peta','Petak','Catatan','Tarikh simpan','Tarikh kejadian','Masa kejadian','Lat, Long','Google Maps']].concat(marks.map(m=>[m.nama,KAT[m.kategori]||'',m.sektor||'',fmtGR(m.E,m.N,6),sheetName(m.E,m.N),cellRef(Math.floor(m.E),Math.floor(m.N)),m.catatan||'',(m.masa||'').slice(0,10),m.tarikhK||'',m.masaK||'',llText(m.E,m.N),gmapsUrl(m.E,m.N)]));
   return rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\r\n'); }
 $('btnCsv').onclick=async()=>{ const em=$('exportMsg'); em.hidden=false;
   if(!dlApi){ em.textContent='Muat turun tidak tersedia di paparan ini. Guna "Salin senarai".'; return; }
   try{ await dlApi.save({filename:'tanda-sektor-B.csv',data:new Blob(['﻿'+csv()],{type:'text/csv'})}); em.textContent='Fail CSV dihantar untuk disimpan.'; }
   catch(e){ em.textContent='Muat turun dibatalkan.'; } };
 $('btnSalin').onclick=async()=>{ const em=$('exportMsg'); em.hidden=false;
-  const t=marks.map(m=>m.nama+' — '+grLabel(m.E,m.N)+(m.sektor?' ('+m.sektor+')':'')).join('\n');
+  const t=marks.map(m=>m.nama+' — '+grLabel(m.E,m.N)+'\n'+gmapsUrl(m.E,m.N)+(m.sektor?' ('+m.sektor+')':'')).join('\n');
   try{ await navigator.clipboard.writeText(t); em.textContent='Senarai disalin ('+marks.length+' titik).'; }
   catch(e){ em.textContent='Tak dapat salin automatik. Pilih senarai secara manual.'; } };
 
@@ -729,7 +752,8 @@ function selectRon(id){ if(formOpen) closeForm(); ronSel=id; const r=rons.find(x
     '<div class="m" style="font:12px var(--mono);color:var(--muted)">'+esc(fmtTarikh(r.tarikh))+' · '+esc(r.keluar||'')+'–'+esc(r.masuk||'')+' · '+(r.jarakKm||0).toFixed(1)+' km · '+(r.petak||[]).length+' petak</div>'+
     ((r.ketua||r.kekuatan)?'<div>'+esc(r.ketua||'')+(r.kekuatan?' · '+esc(r.kekuatan):'')+'</div>':'')+
     '<div class="hint" style="font-family:var(--mono);font-size:12px">'+esc(g.join(' → '))+'</div>'+
-    ((r.penemuan||[]).length?'<div>'+r.penemuan.map(f=>'<div class="hint" style="color:var(--ink)">⚑ '+esc(f.jenis)+(typeof f.E==='number'?' · '+esc(grLabel(f.E,f.N)):'')+(f.ket?' — '+esc(f.ket):'')+'</div>').join('')+'</div>':(isDone(r)?'<p class="hint">Belum ada penemuan direkod. Tekan Kemaskini untuk tambah.</p>':''))+
+    ((r.laluan||[]).length?'<div>'+gmapsLink(r.laluan[0].E,r.laluan[0].N,'Titik mula di Google Maps')+'</div>':'')+
+    ((r.penemuan||[]).length?'<div>'+r.penemuan.map(f=>'<div class="hint" style="color:var(--ink)">⚑ '+esc(f.jenis)+(typeof f.E==='number'?' · '+esc(grLabel(f.E,f.N))+' · '+gmapsLink(f.E,f.N,'Google Maps'):'')+(f.ket?' — '+esc(f.ket):'')+'</div>').join('')+'</div>':(isDone(r)?'<p class="hint">Belum ada penemuan direkod. Tekan Kemaskini untuk tambah.</p>':''))+
     (r.catatan?'<p class="hint" style="color:var(--ink)">'+esc(r.catatan)+'</p>':'')+
     '<div class="actions"><button class="btn ghost" id="rdTutup" type="button">Tutup</button>'+(w?'<button class="btn ghost" id="rdEdit" type="button">Kemaskini</button><button class="btn ghost" id="rdPadam" type="button">Padam</button>':'')+'</div><p class="err" id="rdErr" hidden></p>';
   $('rdTutup').onclick=()=>{ ronSel=null; el.hidden=true; ronSelLayer.clearLayers(); };
@@ -739,12 +763,18 @@ function selectRon(id){ if(formOpen) closeForm(); ronSel=id; const r=rons.find(x
   el.scrollIntoView({block:'nearest'}); }
 function cellHistory(id){ return rons.filter(r=>(r.petak||[]).includes(id)).sort((a,b)=>b.tarikh.localeCompare(a.tarikh)); }
 function showRonDetailCell(ix,iy){ const el=$('ronDetail'); el.hidden=false; el.className='detail'; ronSelLayer.clearLayers(); ronSel=null;
-  const hist=cellHistory('c'+ix+'_'+iy);
+  const hist=cellHistory('c'+ix+'_'+iy), w=db&&canWrite!==false;
   ronSelLayer.addLayer(L.rectangle([[iy,ix],[iy+1,ix+1]],{color:'#1c63d6',weight:3,fill:false,interactive:false}));
   el.innerHTML='<h2>Sejarah petak</h2><div style="font:600 16px var(--mono)">'+cellRef(ix,iy)+'</div><div class="hint">'+esc(sheetName(ix+.5,iy+.5))+'</div>'+
-    (hist.length?hist.map(r=>'<div class="hint" style="color:var(--ink)"><i class="sw" style="display:inline-block;vertical-align:-2px;background:'+statusCol(r)+'"></i> '+esc(fmtTarikh(r.tarikh))+' · '+esc(r.pos)+' · '+esc(statusText(r))+'</div>').join(''):'<p class="hint">Petak ini belum pernah dironda atau dirancang.</p>')+
+    (hist.length?'<div class="list">'+hist.map(r=>'<div class="item" data-id="'+esc(r.id)+'" tabindex="0" style="grid-template-columns:12px 1fr auto"><i class="dot" style="background:'+statusCol(r)+'"></i>'+
+      '<div style="min-width:0"><div class="t">'+esc(r.pos)+'</div><div class="m">'+esc(fmtTarikh(r.tarikh))+' · '+esc(statusText(r))+'</div></div>'+
+      (w?'<button class="btn ghost" type="button" data-edit="'+esc(r.id)+'" style="padding:6px 10px">Kemaskini</button>':'')+'</div>').join('')+'</div>'
+      :'<p class="hint">Petak ini belum pernah dironda atau dirancang.</p>')+
     '<div class="actions"><button class="btn ghost" id="rdTutup" type="button">Tutup</button></div>';
-  $('rdTutup').onclick=()=>{ el.hidden=true; ronSelLayer.clearLayers(); }; }
+  el.querySelectorAll('.item').forEach(it=>{ const go=()=>selectRon(it.dataset.id); it.onclick=go; it.onkeydown=e=>{ if(e.key==='Enter') go(); }; });
+  el.querySelectorAll('[data-edit]').forEach(b=>b.onclick=ev=>{ ev.stopPropagation(); const r=rons.find(x=>x.id===b.dataset.edit); if(r) openForm(r); });
+  $('rdTutup').onclick=()=>{ el.hidden=true; ronSelLayer.clearLayers(); };
+  el.scrollIntoView({block:'nearest'}); }
 
 $('rCsv').onclick=async()=>{ const em=$('rCsvMsg'); em.hidden=false;
   if(!dlApi){ em.textContent='Muat turun tidak tersedia di paparan ini.'; return; }
@@ -752,7 +782,7 @@ $('rCsv').onclick=async()=>{ const em=$('rCsvMsg'); em.hidden=false;
     ronFiltered().map(r=>[r.tarikh,isDone(r)?'Dah dironda':'Dirancang',r.keluar||'',r.masuk||'',r.pos,r.sektor||'',r.ketua||'',r.kekuatan||'',(r.jarakKm||0).toFixed(2),(r.petak||[]).length,
       (r.petak||[]).map(id=>{ const [ix,iy]=id.slice(1).split('_').map(Number); return cellRef(ix,iy); }).join('; '),
       (r.laluan||[]).map(p=>fmtGR(p.E,p.N,6)).join(' > '),
-      (r.penemuan||[]).map(f=>f.jenis+(typeof f.E==='number'?' @ GR '+fmtGR(f.E,f.N,6)+' '+sheetName(f.E,f.N):'')+(f.ket?' ('+f.ket+')':'')).join('; '),r.catatan||'']));
+      (r.penemuan||[]).map(f=>f.jenis+(typeof f.E==='number'?' @ GR '+fmtGR(f.E,f.N,6)+' '+sheetName(f.E,f.N)+' '+gmapsUrl(f.E,f.N):'')+(f.ket?' ('+f.ket+')':'')).join('; '),r.catatan||'']));
   const t=rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\r\n');
   try{ await dlApi.save({filename:'rondaan-sektor-B.csv',data:new Blob(['﻿'+t],{type:'text/csv'})}); em.textContent='Fail CSV dihantar untuk disimpan.'; }
   catch(e){ em.textContent='Muat turun dibatalkan.'; } };
