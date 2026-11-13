@@ -112,6 +112,10 @@ h2{font-family:var(--display);font-size:13px;letter-spacing:.08em;text-transform
 .sheet-lbl{opacity:.75;background:rgba(255,255,255,.75);border:1px solid rgba(29,36,33,.35);border-radius:3px;padding:2px 6px;font:500 12px var(--body);color:#1d2421;white-space:nowrap;width:auto!important;height:auto!important}
 .sheet-lbl b{font-family:var(--mono);font-weight:600}
 #map.zvfar .sheet-lbl{display:none}
+.cov-lbl{width:0!important;height:0!important;pointer-events:none}
+.cov-lbl span{display:inline-block;transform:translate(-50%,-50%);white-space:nowrap;font:600 10px var(--mono);color:#14532d;background:rgba(255,255,255,.8);border-radius:3px;padding:0 3px;line-height:14px}
+.cov-lbl.plan span{color:#7a5c00}
+#map.zfar .cov-lbl{display:none}
 .cursor-gr{position:absolute;left:max(10px,env(safe-area-inset-left,0px));bottom:10px;z-index:900;background:rgba(29,36,33,.86);color:#fff;font:600 12px var(--mono);padding:5px 8px;border-radius:5px;pointer-events:none}
 /* --- minimal Leaflet 1.9 core styles --- */
 .leaflet-pane,.leaflet-tile,.leaflet-marker-icon,.leaflet-marker-shadow,.leaflet-tile-container,.leaflet-pane>svg,.leaflet-pane>canvas,.leaflet-zoom-box,.leaflet-image-layer,.leaflet-layer{position:absolute;left:0;top:0}
@@ -624,7 +628,10 @@ function computeCoverage(){ coverage={};
     if(isDone(r)){ c.n++; if(!c.done||r.tarikh>c.done) c.done=r.tarikh; } else if(!c.plan||r.tarikh<c.plan) c.plan=r.tarikh; })); }
 function drawCoverage(){ covLayer.clearLayers(); if(!$('rCov').checked) return;
   Object.values(coverage).forEach(c=>{ const col=c.done?css('--st-dironda'):css('--st-belum');
-    covLayer.addLayer(L.rectangle([[c.iy,c.ix],[c.iy+1,c.ix+1]],{color:col,weight:1,fillColor:col,fillOpacity:.32,interactive:false})); }); }
+    covLayer.addLayer(L.rectangle([[c.iy,c.ix],[c.iy+1,c.ix+1]],{color:col,weight:1,fillColor:col,fillOpacity:.32,interactive:false}));
+    const t=c.done||c.plan, hb=t.slice(8,10)+'/'+t.slice(5,7);
+    covLayer.addLayer(L.marker([c.iy+0.5,c.ix+0.5],{interactive:false,keyboard:false,
+      icon:L.divIcon({className:'cov-lbl'+(c.done?'':' plan'),html:'<span>'+hb+'</span>',iconSize:null,iconAnchor:[0,0]})})); }); }
 $('rCov').onchange=drawCoverage;
 function refreshRons(){ computeCoverage(); drawCoverage(); renderRons(); }
 function renderRons(){ const list=ronFiltered().slice().sort((a,b)=>{ const da=isDone(a),dbb=isDone(b);
