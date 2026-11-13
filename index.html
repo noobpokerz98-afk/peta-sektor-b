@@ -763,12 +763,18 @@ function selectRon(id){ if(formOpen) closeForm(); ronSel=id; const r=rons.find(x
   el.scrollIntoView({block:'nearest'}); }
 function cellHistory(id){ return rons.filter(r=>(r.petak||[]).includes(id)).sort((a,b)=>b.tarikh.localeCompare(a.tarikh)); }
 function showRonDetailCell(ix,iy){ const el=$('ronDetail'); el.hidden=false; el.className='detail'; ronSelLayer.clearLayers(); ronSel=null;
-  const hist=cellHistory('c'+ix+'_'+iy);
+  const hist=cellHistory('c'+ix+'_'+iy), w=db&&canWrite!==false;
   ronSelLayer.addLayer(L.rectangle([[iy,ix],[iy+1,ix+1]],{color:'#1c63d6',weight:3,fill:false,interactive:false}));
   el.innerHTML='<h2>Sejarah petak</h2><div style="font:600 16px var(--mono)">'+cellRef(ix,iy)+'</div><div class="hint">'+esc(sheetName(ix+.5,iy+.5))+'</div>'+
-    (hist.length?hist.map(r=>'<div class="hint" style="color:var(--ink)"><i class="sw" style="display:inline-block;vertical-align:-2px;background:'+statusCol(r)+'"></i> '+esc(fmtTarikh(r.tarikh))+' · '+esc(r.pos)+' · '+esc(statusText(r))+'</div>').join(''):'<p class="hint">Petak ini belum pernah dironda atau dirancang.</p>')+
+    (hist.length?'<div class="list">'+hist.map(r=>'<div class="item" data-id="'+esc(r.id)+'" tabindex="0" style="grid-template-columns:12px 1fr auto"><i class="dot" style="background:'+statusCol(r)+'"></i>'+
+      '<div style="min-width:0"><div class="t">'+esc(r.pos)+'</div><div class="m">'+esc(fmtTarikh(r.tarikh))+' · '+esc(statusText(r))+'</div></div>'+
+      (w?'<button class="btn ghost" type="button" data-edit="'+esc(r.id)+'" style="padding:6px 10px">Kemaskini</button>':'')+'</div>').join('')+'</div>'
+      :'<p class="hint">Petak ini belum pernah dironda atau dirancang.</p>')+
     '<div class="actions"><button class="btn ghost" id="rdTutup" type="button">Tutup</button></div>';
-  $('rdTutup').onclick=()=>{ el.hidden=true; ronSelLayer.clearLayers(); }; }
+  el.querySelectorAll('.item').forEach(it=>{ const go=()=>selectRon(it.dataset.id); it.onclick=go; it.onkeydown=e=>{ if(e.key==='Enter') go(); }; });
+  el.querySelectorAll('[data-edit]').forEach(b=>b.onclick=ev=>{ ev.stopPropagation(); const r=rons.find(x=>x.id===b.dataset.edit); if(r) openForm(r); });
+  $('rdTutup').onclick=()=>{ el.hidden=true; ronSelLayer.clearLayers(); };
+  el.scrollIntoView({block:'nearest'}); }
 
 $('rCsv').onclick=async()=>{ const em=$('rCsvMsg'); em.hidden=false;
   if(!dlApi){ em.textContent='Muat turun tidak tersedia di paparan ini.'; return; }
