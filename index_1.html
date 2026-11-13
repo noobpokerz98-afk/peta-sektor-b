@@ -1,0 +1,858 @@
+<!doctype html>
+<html lang="ms">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Peta Tanda Sektor B</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans+Condensed:wght@400;500;600;700&display=swap">
+<style>
+:root{color-scheme:light}
+body{margin:0;font:14px system-ui,-apple-system,"Segoe UI",sans-serif}
+img{max-width:100%}
+[hidden]{display:none!important}
+*,*::before,*::after{box-sizing:border-box}
+/* Layout: one-screen map room — sticky command bar, map as the board, side ledger (bottom sheet on phones) */
+:root{
+  --bg:#eef0ea; --panel:#fbfbf8; --ink:#1d2421; --muted:#5d6a63; --line:#d3d8cf;
+  --bar:#22302a; --bar-ink:#eef3ec; --accent:#d4561c; --accent-ink:#ffffff; --field:#ffffff;
+  --st-dironda:#2f9e44; --st-belum:#e6b800; --st-perhatian:#e8590c; --st-larangan:#c92a2a;
+  --k-pos:#1c63d6; --k-kampung:#6b4fbb; --k-sasaran:#c92a2a; --k-insiden:#e8590c; --k-lain:#343a40; --chart:#2f6fd0; --chart-grid:#e1e5dd;
+  --display:"IBM Plex Sans Condensed","Arial Narrow",system-ui,sans-serif;
+  --body:"IBM Plex Sans Condensed",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#141a17; --panel:#1b2320; --ink:#e6ece7; --muted:#9aa8a0; --line:#2f3a35;
+  --bar:#0e1311; --bar-ink:#e6ece7; --accent:#f0743a; --accent-ink:#1a0d05; --field:#121815; --chart:#6ea2f0; --chart-grid:#2c3632; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141a17; --panel:#1b2320; --ink:#e6ece7; --muted:#9aa8a0; --line:#2f3a35;
+  --bar:#0e1311; --bar-ink:#e6ece7; --accent:#f0743a; --accent-ink:#1a0d05; --field:#121815; --chart:#6ea2f0; --chart-grid:#2c3632; color-scheme:dark}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;overflow:hidden}
+.app{height:100%;display:grid;grid-template-rows:auto 1fr}
+header{background:var(--bar);color:var(--bar-ink);display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  padding-block:10px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header h1{font-family:var(--display);font-weight:700;font-size:18px;letter-spacing:.04em;text-transform:uppercase;margin:0;white-space:nowrap}
+header .sub{font-size:12px;opacity:.7;letter-spacing:.06em;text-transform:uppercase}
+.grow{flex:1}
+.seg{display:inline-flex;border:1px solid rgba(255,255,255,.25);border-radius:6px;overflow:hidden}
+.seg button{background:transparent;color:var(--bar-ink);border:0;padding:7px 12px;font:600 13px var(--body);letter-spacing:.04em;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.jump{display:inline-flex;gap:6px}
+.jump button{background:rgba(255,255,255,.08);color:var(--bar-ink);border:1px solid rgba(255,255,255,.2);border-radius:6px;padding:6px 10px;font:600 13px var(--body);cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.main{display:grid;grid-template-columns:1fr 360px;min-height:0}
+#map{position:relative;min-height:0;background:#fff}
+aside{background:var(--panel);border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+.tabs{display:flex;border-bottom:1px solid var(--line)}
+.tabs button{flex:1;background:none;border:0;border-bottom:3px solid transparent;padding:11px 8px;font:600 13px var(--body);letter-spacing:.05em;text-transform:uppercase;color:var(--muted);cursor:pointer}
+.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+.pane{overflow:auto;padding:14px 16px 24px;display:flex;flex-direction:column;gap:14px;min-height:0;flex:1}
+.readout{font-family:var(--mono);font-size:13px;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px 10px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.readout b{font-weight:600}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+input,select,textarea{font:15px var(--body);color:var(--ink);background:var(--field);border:1px solid var(--line);border-radius:6px;padding:8px 10px;width:100%;box-sizing:border-box}
+input.mono{font-family:var(--mono);letter-spacing:.06em}
+textarea{resize:vertical;min-height:56px}
+.row{display:grid;grid-template-columns:92px 1fr;gap:8px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.btn{background:var(--accent);color:var(--accent-ink);border:0;border-radius:6px;padding:10px 14px;font:700 14px var(--body);letter-spacing:.04em;cursor:pointer}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.btn.danger{background:var(--st-larangan);color:#fff}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.hint{font-size:13px;color:var(--muted);line-height:1.45;margin:0}
+.err{font-size:13px;color:var(--st-larangan);margin:0}
+.ok{font-size:13px;color:var(--st-dironda);margin:0}
+h2{font-family:var(--display);font-size:13px;letter-spacing:.08em;text-transform:uppercase;margin:0;color:var(--muted)}
+.status-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.status-grid button{display:flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--field);color:var(--ink);border-radius:6px;padding:10px;font:600 14px var(--body);cursor:pointer;text-align:left}
+.status-grid button[aria-pressed="true"]{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.sw{width:14px;height:14px;border-radius:3px;flex:none}
+.counts{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.counts div{border:1px solid var(--line);border-radius:6px;padding:6px;text-align:center;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+.counts b{display:block;font:600 18px var(--mono);color:var(--ink);font-variant-numeric:tabular-nums}
+.list{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.item{display:grid;grid-template-columns:12px 1fr auto;gap:10px;align-items:center;padding:9px 10px;border-bottom:1px solid var(--line);background:var(--field);cursor:pointer}
+.item:last-child{border-bottom:0}
+.item:hover{background:var(--bg)}
+.item .dot{width:12px;height:12px;border-radius:50%}
+.item .t{font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.item .m{font:12px var(--mono);color:var(--muted)}
+.item .gr{font:600 12px var(--mono);white-space:nowrap}
+.empty{padding:14px;font-size:13px;color:var(--muted);text-align:center}
+.detail{border:1px solid var(--line);border-radius:6px;padding:12px;display:flex;flex-direction:column;gap:8px;background:var(--field)}
+.detail .gr{font:600 16px var(--mono)}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.legend{display:flex;flex-wrap:wrap;gap:6px 12px;font-size:12px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.note{font-size:12px;color:var(--muted);border-top:1px solid var(--line);padding-top:10px}
+.banner{font-size:13px;padding:8px 10px;border-radius:6px;background:var(--bg);border:1px solid var(--line)}
+.subtabs,.seg2{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.subtabs button,.seg2 button{border:1px solid var(--line);background:var(--field);color:var(--ink);border-radius:6px;padding:7px 10px;font:600 13px var(--body);cursor:pointer}
+.subtabs button[aria-pressed="true"],.seg2 button[aria-pressed="true"]{background:var(--ink);color:var(--panel);border-color:var(--ink)}
+.readout a{color:var(--accent);font-family:var(--body);font-weight:600;text-decoration:none}
+.chk{display:flex;align-items:center;gap:8px;font-size:14px}
+.chk input{width:auto}
+.pn{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:8px 10px;border-bottom:1px solid var(--line);background:var(--field);font-size:13px}
+.pn:last-child{border-bottom:0}
+.pn button{background:none;border:0;color:var(--st-larangan);font:600 13px var(--body);cursor:pointer}
+.tabs button{padding:11px 2px;font-size:12px;letter-spacing:.03em}
+.chart{display:flex;flex-direction:column;gap:6px}
+.chart .cap{display:flex;justify-content:space-between;font-size:12px;color:var(--muted)}
+.bars{position:relative;display:grid;gap:2px;align-items:end;height:110px;border-bottom:1px solid var(--line);
+  background:linear-gradient(var(--chart-grid) 1px,transparent 1px) 0 0/100% 50%}
+.bars .b{position:relative;height:100%;display:flex;align-items:flex-end;cursor:default}
+.bars .b i{display:block;width:100%;background:var(--chart);border-radius:3px 3px 0 0;min-height:0}
+.bars .b:hover i,.bars .b:focus i{filter:brightness(1.15)}
+.bars .b.zero i{background:transparent}
+.ticks{display:grid;gap:2px;font:10px var(--mono);color:var(--muted);text-align:center}
+.tip{position:fixed;z-index:6000;pointer-events:none;background:var(--ink);color:var(--panel);font:600 12px var(--body);padding:4px 8px;border-radius:5px;white-space:nowrap}
+.stat-tiles{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.stat-tiles div{border:1px solid var(--line);border-radius:6px;padding:8px 10px;background:var(--field)}
+.stat-tiles b{display:block;font:600 20px var(--mono);font-variant-numeric:tabular-nums}
+.stat-tiles span{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tbl td,.tbl th{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left}
+.tbl th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.tbl td.n{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
+/* phone */
+@media (max-width:820px){
+  .main{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) auto}
+  aside{border-left:0;border-top:1px solid var(--line);max-height:52vh}
+  aside.min .pane{display:none}
+  header .sub{display:none}
+}
+/* map labels */
+.mk-label{background:rgba(255,255,255,.92);border:1px solid #1d2421;border-radius:3px;color:#1d2421;font:600 11px var(--body);padding:1px 5px;box-shadow:none}
+.mk-label::before{display:none}
+#map.zfar .mk-label{display:none}
+.sheet-lbl{opacity:.75;background:rgba(255,255,255,.75);border:1px solid rgba(29,36,33,.35);border-radius:3px;padding:2px 6px;font:500 12px var(--body);color:#1d2421;white-space:nowrap;width:auto!important;height:auto!important}
+.sheet-lbl b{font-family:var(--mono);font-weight:600}
+#map.zvfar .sheet-lbl{display:none}
+.cov-lbl{width:0!important;height:0!important;pointer-events:none}
+.cov-lbl span{display:inline-block;transform:translate(-50%,-50%);white-space:nowrap;font:600 10px var(--mono);color:#14532d;background:rgba(255,255,255,.8);border-radius:3px;padding:0 3px;line-height:14px}
+.cov-lbl.plan span{color:#7a5c00}
+#map.zfar .cov-lbl{display:none}
+.cursor-gr{position:absolute;left:max(10px,env(safe-area-inset-left,0px));bottom:10px;z-index:900;background:rgba(29,36,33,.86);color:#fff;font:600 12px var(--mono);padding:5px 8px;border-radius:5px;pointer-events:none}
+/* --- minimal Leaflet 1.9 core styles --- */
+.leaflet-pane,.leaflet-tile,.leaflet-marker-icon,.leaflet-marker-shadow,.leaflet-tile-container,.leaflet-pane>svg,.leaflet-pane>canvas,.leaflet-zoom-box,.leaflet-image-layer,.leaflet-layer{position:absolute;left:0;top:0}
+.leaflet-container{overflow:hidden;-webkit-tap-highlight-color:transparent;outline-offset:1px}
+.leaflet-tile,.leaflet-marker-icon,.leaflet-marker-shadow{user-select:none;-webkit-user-drag:none}
+.leaflet-container img.leaflet-tile,.leaflet-container .leaflet-tile-pane img,.leaflet-container .leaflet-overlay-pane svg{max-width:none!important;max-height:none!important;width:auto;padding:0}
+.leaflet-tile{filter:inherit;visibility:hidden}.leaflet-tile-loaded{visibility:inherit}
+.leaflet-pane{z-index:400}.leaflet-tile-pane{z-index:200}.leaflet-overlay-pane{z-index:400}.leaflet-shadow-pane{z-index:500}.leaflet-marker-pane{z-index:600}.leaflet-tooltip-pane{z-index:650}.leaflet-popup-pane{z-index:700}.leaflet-map-pane canvas{z-index:100}.leaflet-map-pane svg{z-index:200}
+.leaflet-pane>svg path{pointer-events:none}.leaflet-pane>svg path.leaflet-interactive{pointer-events:visiblePainted;pointer-events:auto}
+.leaflet-touch-zoom{touch-action:pan-x pan-y}.leaflet-touch-drag,.leaflet-touch-drag.leaflet-touch-zoom{touch-action:none}
+.leaflet-grab{cursor:grab}.leaflet-dragging .leaflet-grab,.leaflet-dragging .leaflet-grab .leaflet-interactive{cursor:grabbing}
+.leaflet-crosshair,.leaflet-crosshair .leaflet-interactive{cursor:crosshair}
+.leaflet-interactive{cursor:pointer}
+.leaflet-zoom-animated{transform-origin:0 0}
+.leaflet-zoom-anim .leaflet-zoom-animated{transition:transform .25s cubic-bezier(0,0,.25,1)}
+.leaflet-zoom-anim .leaflet-tile,.leaflet-pan-anim .leaflet-tile{transition:none}
+.leaflet-zoom-anim .leaflet-zoom-hide{visibility:hidden}
+.leaflet-control{position:relative;z-index:800;pointer-events:auto;float:left;clear:both}
+.leaflet-top,.leaflet-bottom{position:absolute;z-index:1000;pointer-events:none}
+.leaflet-top{top:0}.leaflet-right{right:0}.leaflet-bottom{bottom:0}.leaflet-left{left:0}
+.leaflet-right .leaflet-control{float:right;margin-right:max(10px,env(safe-area-inset-right,0px))}
+.leaflet-top .leaflet-control{margin-top:10px}
+.leaflet-bar{border-radius:6px;box-shadow:0 1px 4px rgba(0,0,0,.35);overflow:hidden}
+.leaflet-bar a{display:block;width:36px;height:36px;line-height:36px;text-align:center;text-decoration:none;background:#fff;color:#1d2421;border-bottom:1px solid #ccc;font:700 20px var(--mono)}
+.leaflet-bar a:last-child{border-bottom:0}
+.leaflet-bar a.leaflet-disabled{color:#bbb;cursor:default}
+.leaflet-tooltip{position:absolute;white-space:nowrap;user-select:none;pointer-events:none}
+@media (prefers-reduced-motion:reduce){.leaflet-zoom-anim .leaflet-zoom-animated{transition:none}}
+/* login */
+.login{position:fixed;inset:0;z-index:5000;background:var(--bg);display:grid;place-items:center;padding:24px max(16px,env(safe-area-inset-left,0px))}
+.login .card{width:100%;max-width:380px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:22px;display:flex;flex-direction:column;gap:14px}
+.login h1{font-family:var(--display);font-size:22px;letter-spacing:.04em;text-transform:uppercase;margin:0}
+.user-chip{font-size:12px;opacity:.85;display:flex;align-items:center;gap:8px}
+.user-chip button{background:transparent;color:var(--bar-ink);border:1px solid rgba(255,255,255,.3);border-radius:6px;padding:5px 9px;font:600 12px var(--body);cursor:pointer}
+.sync{font-size:11px;opacity:.7}
+</style>
+</head>
+<body>
+
+<div class="login" id="login" hidden>
+  <form class="card" id="loginForm" autocomplete="on">
+    <h1>Peta Tanda Sektor B</h1>
+    <p class="hint">Log masuk dengan no tentera dan kata laluan yang sama seperti app OKP Sektor B.</p>
+    <label class="f">No tentera<input id="lNo" inputmode="numeric" autocomplete="username" required></label>
+    <label class="f">Kata laluan<input id="lPw" type="password" autocomplete="current-password" required></label>
+    <p class="err" id="lErr" hidden></p>
+    <button class="btn" id="lBtn" type="submit">Log masuk</button>
+    <p class="hint">Belum ada akaun? Daftar dahulu di <a href="https://script.google.com/macros/s/AKfycbxZpbWthmqsUsfeyIuOsaiTieciUR0R6C2BqzYyZgs_W3i43bVNErEweFbSLFI1SKyPOg/exec" target="_blank" rel="noopener">app OKP Sektor B</a>, tunggu admin luluskan, kemudian log masuk di sini.</p>
+  </form>
+</div>
+
+<div class="app">
+  <header>
+    <div>
+      <h1>Peta Tanda Sektor B</h1>
+      <div class="sub">MY512A · 1:50 000 · petak grid 1 km</div>
+    </div>
+    <div class="grow"></div>
+    <div class="seg" role="group" aria-label="Mod tanda">
+      <button id="modeTitik" aria-pressed="true">Titik GR</button>
+      <button id="modePetak" aria-pressed="false">Kawasan</button>
+      <button id="modeRondaan" aria-pressed="false">Rondaan</button>
+    </div>
+    <div class="user-chip" id="userChip" hidden><span id="userName"></span><span class="sync" id="syncTxt"></span><button id="btnLogout" type="button">Log keluar</button></div>
+    <div class="jump" aria-label="Lompat ke sektor">
+      <button data-jump="ALL">Semua</button>
+      <button data-jump="B1">B1</button>
+      <button data-jump="B2">B2</button>
+      <button data-jump="B3">B3</button>
+    </div>
+  </header>
+
+  <div class="main">
+    <div id="map" aria-label="Peta mozek Sektor B"><div class="cursor-gr" id="cursorGr">Gerakkan atau ketik peta</div></div>
+
+    <aside id="side">
+      <div class="tabs" role="tablist">
+        <button role="tab" id="tabTanda" aria-selected="true">Tanda</button>
+        <button role="tab" id="tabSenarai" aria-selected="false">Senarai</button>
+        <button role="tab" id="tabPetak" aria-selected="false">Kawasan</button>
+        <button role="tab" id="tabRondaan" aria-selected="false">Rondaan</button>
+        <button role="tab" id="tabStat" aria-selected="false">Statistik</button>
+      </div>
+
+      <!-- TANDA: add a point -->
+      <section class="pane" id="paneTanda">
+        <div class="banner" id="accessBanner" hidden></div>
+        <div id="selDetail" hidden></div>
+        <h2>Plot titik GR</h2>
+        <p class="hint">Taip GR 6 angka seperti yang dibaca pada peta kertas (contoh <b>185160</b>), atau ketik terus pada peta. Pilih sektor, dan sistem tahu lembar peta mana yang dimaksudkan.</p>
+        <form id="formTitik" autocomplete="off">
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <div class="row2">
+              <label class="f">GR
+                <input id="fGr" class="mono" inputmode="numeric" placeholder="185160" maxlength="12">
+              </label>
+              <label class="f">Lembar peta
+                <select id="fLembar"><option value="auto">Ikut sektor</option></select>
+              </label>
+            </div>
+            <p class="hint" id="fWhere" hidden></p>
+            <label class="f">Nama / label
+              <input id="fNama" placeholder="Contoh: Pos Balai Ringin" maxlength="80">
+            </label>
+            <div class="row2">
+              <label class="f">Kategori
+                <select id="fKat">
+                  <option value="pos">Pos</option><option value="kampung">Kampung</option>
+                  <option value="sasaran">Sasaran</option><option value="insiden">Insiden</option>
+                  <option value="lain">Lain-lain</option>
+                </select>
+              </label>
+              <label class="f">Sektor
+                <select id="fSek"><option>B1</option><option>B2</option><option>B3</option><option value="">Luar sektor</option></select>
+              </label>
+            </div>
+            <div class="row2" id="fWaktuRow" hidden>
+              <label class="f">Tarikh kejadian<input id="fTarikhK" type="date"></label>
+              <label class="f">Masa kejadian<input id="fMasaK" type="time"></label>
+            </div>
+            <label class="f">Catatan
+              <textarea id="fCat" maxlength="400" placeholder="Pilihan"></textarea>
+            </label>
+            <p class="err" id="titikErr" hidden></p>
+            <p class="ok" id="titikOk" hidden></p>
+            <div class="actions">
+              <button class="btn" type="submit" id="btnSimpanTitik">Simpan titik</button>
+              <button class="btn ghost" type="button" id="btnLihat">Tunjuk di peta</button>
+              <button class="btn ghost" type="button" id="btnBatalEdit" hidden>Batal kemaskini</button>
+            </div>
+          </div>
+        </form>
+        <div class="legend" aria-label="Petunjuk kategori">
+          <span><i class="sw" style="background:var(--k-pos);border-radius:50%"></i>Pos</span>
+          <span><i class="sw" style="background:var(--k-kampung);border-radius:50%"></i>Kampung</span>
+          <span><i class="sw" style="background:var(--k-sasaran);border-radius:50%"></i>Sasaran</span>
+          <span><i class="sw" style="background:var(--k-insiden);border-radius:50%"></i>Insiden</span>
+          <span><i class="sw" style="background:var(--k-lain);border-radius:50%"></i>Lain-lain</span>
+        </div>
+        <label class="chk"><input type="checkbox" id="showSheets" checked> Tunjuk nama lembar peta</label>
+        <p class="note">Garisan hitam pada peta ialah sempadan Sektor B1, B2 dan B3. Kotak putus-putus ialah lembar peta 1:50 000 (contoh AG21 Keranggas Gayau), sama seperti peta kertas. Semua tanda disimpan dalam Google Sheet OKP SEKTOR B 2026 dan dikongsi dengan semua anggota berdaftar.</p>
+      </section>
+
+      <!-- SENARAI -->
+      <section class="pane" id="paneSenarai" hidden>
+        <div class="row2">
+          <input id="qCari" placeholder="Cari nama atau GR" aria-label="Cari">
+          <select id="qSek" aria-label="Tapis sektor"><option value="">Semua sektor</option><option>B1</option><option>B2</option><option>B3</option></select>
+        </div>
+        <div class="list" id="list"><div class="empty">Memuatkan tanda…</div></div>
+        <div class="actions">
+          <button class="btn ghost" id="btnCsv" type="button">Muat turun CSV</button>
+          <button class="btn ghost" id="btnSalin" type="button">Salin senarai</button>
+        </div>
+        <p class="hint" id="exportMsg" hidden></p>
+      </section>
+
+      <!-- KAWASAN (perhatian / larangan) -->
+      <section class="pane" id="panePetak" hidden>
+        <h2>Tanda kawasan</h2>
+        <p class="hint">Untuk kawasan yang perlu diberi perhatian atau kawasan larangan. Pilih jenis, kemudian ketik petak 1 km di peta. Ketik petak yang sama sekali lagi untuk buang tanda.</p>
+        <div class="status-grid" id="statusGrid">
+          <button data-st="perhatian" aria-pressed="true"><i class="sw" style="background:var(--st-perhatian)"></i>Perhatian</button>
+          <button data-st="larangan" aria-pressed="false"><i class="sw" style="background:var(--st-larangan)"></i>Kawasan larangan</button>
+        </div>
+        <label class="f">Catatan (pilihan)
+          <input id="pCat" maxlength="160" placeholder="Contoh: Laluan tikus, kerap ada pergerakan">
+        </label>
+        <div class="counts" id="counts" style="grid-template-columns:1fr 1fr">
+          <div><b id="cPerhatian">0</b>Perhatian</div><div><b id="cLarangan">0</b>Larangan</div>
+        </div>
+        <div id="petakInfo" class="readout" hidden></div>
+        <p class="err" id="petakErr" hidden></p>
+      </section>
+
+      <!-- STATISTIK -->
+      <section class="pane" id="paneStat" hidden>
+        <h2>Statistik sasaran</h2>
+        <p class="hint">Dikira dari tarikh dan masa kejadian yang diisi semasa tanda titik Sasaran atau Insiden.</p>
+        <div class="row2">
+          <select id="sKat" aria-label="Kategori"><option value="sasaran">Sasaran</option><option value="insiden">Insiden</option><option value="both">Sasaran + Insiden</option></select>
+          <select id="sSek" aria-label="Sektor"><option value="">Semua sektor</option><option>B1</option><option>B2</option><option>B3</option></select>
+        </div>
+        <select id="sHari" aria-label="Tempoh"><option value="7">7 hari lepas</option><option value="30" selected>30 hari lepas</option><option value="90">90 hari lepas</option><option value="0">Semua</option></select>
+        <div class="stat-tiles">
+          <div><b id="stJumlah">0</b><span>Jumlah dalam tempoh</span></div>
+          <div><b id="st7">0</b><span>7 hari lepas</span></div>
+          <div><b id="stJam">–</b><span>Waktu paling kerap</span></div>
+          <div><b id="stHari">–</b><span>Hari paling kerap</span></div>
+        </div>
+        <div class="chart" id="chJam"></div>
+        <div class="chart" id="chHari"></div>
+        <div class="chart" id="chTarikh"></div>
+        <h2>Ikut sektor</h2>
+        <div style="overflow-x:auto"><table class="tbl" id="tbSek"></table></div>
+        <h2>Senarai terkini</h2>
+        <div class="list" id="stList"></div>
+        <p class="hint" id="stNota" hidden></p>
+      </section>
+
+      <!-- RONDAAN -->
+      <section class="pane" id="paneRondaan" hidden>
+        <div class="legend">
+          <span><i class="sw" style="background:var(--st-dironda)"></i>Dah dironda (tarikh dah lepas)</span>
+          <span><i class="sw" style="background:var(--st-belum)"></i>Dirancang (belum sampai tarikh)</span>
+        </div>
+        <label class="chk"><input type="checkbox" id="rCov" checked> Tunjuk warna rondaan di peta</label>
+        <div class="row2">
+          <select id="rfSek" aria-label="Tapis sektor"><option value="">Semua sektor</option><option>B1</option><option>B2</option><option>B3</option></select>
+          <select id="rfHari" aria-label="Tempoh rondaan selesai"><option value="7">Selesai 7 hari lepas</option><option value="30" selected>Selesai 30 hari lepas</option><option value="0">Semua</option></select>
+        </div>
+        <div class="counts">
+          <div><b id="rcRancang">0</b>Dirancang</div><div><b id="rcSelesai">0</b>Selesai</div><div><b id="rcKm">0</b>Km</div><div><b id="rcPn">0</b>Penemuan</div>
+        </div>
+        <button class="btn" id="rBaru" type="button">+ Set rondaan</button>
+        <p class="ok" id="ronOk" hidden></p>
+
+        <div id="ronForm" class="detail" hidden>
+          <h2 id="rFormTitle">Set rondaan baru</h2>
+          <p class="hint">Masukkan tarikh rondaan. Bila tarikh tu sampai, petak di laluan akan bertukar hijau (dah dironda) dengan sendirinya. Sebelum tu ia kuning (dirancang).</p>
+          <div class="row2">
+            <label class="f">Tarikh<input id="rTarikh" type="date"></label>
+            <label class="f">Sektor<select id="rSektor"><option>B1</option><option>B2</option><option>B3</option></select></label>
+          </div>
+          <div class="row2">
+            <label class="f">Keluar<input id="rKeluar" type="time" value="07:00"></label>
+            <label class="f">Masuk<input id="rMasuk" type="time" value="15:00"></label>
+          </div>
+          <label class="f">Pos<input id="rPos" list="posList" placeholder="Contoh: Pos Rapak Baru" maxlength="60"></label>
+          <datalist id="posList"></datalist>
+          <div class="row2">
+            <label class="f">Ketua ronda<input id="rKetua" placeholder="Pangkat & nama" maxlength="60"></label>
+            <label class="f">Kekuatan<input id="rKekuatan" placeholder="1 Peg + 8 LLP" maxlength="40"></label>
+          </div>
+
+          <h2>Laluan</h2>
+          <div class="seg2" role="group" aria-label="Ketik peta untuk">
+            <span class="hint">Ketik peta untuk:</span>
+            <button id="cfLaluan" type="button" aria-pressed="true">Tambah titik laluan</button>
+            <button id="cfPenemuan" type="button" aria-pressed="false">Ambil GR penemuan</button>
+          </div>
+          <div style="display:flex;gap:6px"><input id="rvGr" class="mono" inputmode="numeric" placeholder="Atau taip GR titik laluan, contoh 624173" aria-label="GR titik laluan"><button class="btn ghost" id="rvTambah" type="button">Tambah</button></div>
+          <div class="readout"><span id="rJarak">0 titik · 0.0 km · 0 petak</span><span style="display:flex;gap:10px"><a href="#" id="rUndo">Undur</a><a href="#" id="rClear">Kosongkan</a></span></div>
+
+          <h2>Penemuan (isi selepas ronda)</h2>
+          <div class="row2">
+            <select id="pnJenis" aria-label="Jenis penemuan">
+              <option>Tiada penemuan</option><option>Jejak / kesan</option><option>Lintasan haram</option><option>Barang seludup</option>
+              <option>Pertemuan orang awam</option><option>Kerosakan pagar / tugu</option><option>Lain-lain</option>
+            </select>
+            <input id="pnGr" class="mono" inputmode="numeric" placeholder="GR penemuan" aria-label="GR penemuan">
+          </div>
+          <div style="display:flex;gap:6px"><input id="pnKet" placeholder="Keterangan ringkas" maxlength="160" aria-label="Keterangan penemuan"><button class="btn ghost" id="pnTambah" type="button">Tambah</button></div>
+          <div id="pnList" class="list" hidden></div>
+
+          <label class="f">Catatan<textarea id="rCatatan" maxlength="600" placeholder="Pilihan"></textarea></label>
+          <p class="err" id="ronErr" hidden></p>
+          <div class="actions">
+            <button class="btn" id="rSimpan" type="button">Simpan rondaan</button>
+            <button class="btn ghost" id="rBatal" type="button">Batal</button>
+          </div>
+        </div>
+
+        <div id="ronDetail" hidden></div>
+        <h2>Senarai rondaan</h2>
+        <p class="hint" style="margin-top:-8px">Ketik petak di peta untuk lihat sejarah rondaan petak tu.</p>
+        <div class="list" id="ronList"><div class="empty">Memuatkan rondaan…</div></div>
+        <div class="actions"><button class="btn ghost" id="rCsv" type="button">Muat turun CSV rondaan</button></div>
+        <p class="hint" id="rCsvMsg" hidden></p>
+      </section>
+    </aside>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script>
+(function(){
+const $ = id => document.getElementById(id);
+const KAT = {pos:'Pos',kampung:'Kampung',sasaran:'Sasaran',insiden:'Insiden',lain:'Lain-lain'};
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const KCOL = k => css('--k-'+k) || '#333';
+const SCOL = s => css('--st-'+s) || '#888';
+const ST = {perhatian:'Perhatian',larangan:'Kawasan larangan'};
+const BOUNDS = [[-14.5,0],[33.5,156]];
+const SEKTOR = {ALL:BOUNDS, B1:[[-4.5,8.5],[7,27.5]], B2:[[14.3,49.7],[20.8,65.3]], B3:[[9.2,128.8],[20.7,145.9]]};
+
+/* ---- grid reference maths (RSO km grid; E = AG easting, AH adds 100; N negative = AB/AC) ---- */
+/* Map sheets (lembar) of the Sektor B area, in grid km: E = easting (AH sheets start at 100), N = northing (below 0 = AB sheet) */
+const SHEETS=[
+  {k:'AG13',n:'Gedong',e:[0,25],nn:[25,50]},{k:'AG14',n:'Kg Kerayang Lama',e:[25,50],nn:[25,50]},
+  {k:'AG23',n:'Lingga',e:[50,75],nn:[25,50]},{k:'AG24',n:'Sri Aman',e:[75,100],nn:[25,50]},
+  {k:'AH13',n:'Engkelili',e:[100,125],nn:[25,50]},{k:'AH14',n:'Lubok Subong',e:[125,150],nn:[25,50]},
+  {k:'AH23/24/21',n:'Nanga Delok',e:[150,184],nn:[21,50]},
+  {k:'AG11',n:'Kg Melayu Balai Ringin',e:[0,25],nn:[0,25]},{k:'AG12&AB34',n:'Kg Nyelitak',e:[25,50],nn:[-1,25]},
+  {k:'AG21',n:'Keranggas Gayau',e:[50,75],nn:[0,25]},{k:'AG22',n:'Kg Melugu',e:[75,100],nn:[0,25]},
+  {k:'AH11',n:'Batu Lintang',e:[100,125],nn:[0,25]},{k:'AH12',n:'Lubok Antu',e:[125,150],nn:[0,25]},
+  {k:'AB33&AB34',n:'Kg Mongkos',e:[0,26],nn:[-25,0]}];
+function sheetAt(E,N){ return SHEETS.find(s=>E>=s.e[0]&&E<s.e[1]&&N>=s.nn[0]&&N<s.nn[1])||null; }
+function sheetName(E,N){ const s=sheetAt(E,N); return s?s.k+' '+s.n:'luar lembar'; }
+/* GR exactly as read on the paper map: easting digits then northing digits (6 = 100 m, 8 = 10 m) */
+function fmtGR(E,N,digits){ digits=digits||6; const h=digits/2, f=Math.pow(10,h-2);
+  const em=E-(E>=100?100:0), nm=N>=0?N:N+100;
+  return String(Math.floor(em*f)).padStart(h,'0')+String(Math.floor(nm*f)).padStart(h,'0'); }
+function grLabel(E,N){ return 'GR '+fmtGR(E,N,6)+' · '+sheetName(E,N); }
+const SEK_BASE={B1:'AG',B2:'AG',B3:'AH'};
+function parseGR(base,raw){ const d=(raw||'').replace(/\D/g,'');
+  if(![4,6,8,10].includes(d.length)) return {err:'GR mesti 6 angka (contoh 185160). 8 atau 10 angka pun boleh.'};
+  if(!base) return {err:'Pilih sektor atau lembar peta supaya sistem tahu GR ini di kawasan mana.'};
+  const h=d.length/2, f=Math.pow(10,h-2);
+  let e=parseInt(d.slice(0,h),10)/f+0.5/f, n=parseInt(d.slice(h),10)/f+0.5/f;   // centre of the referenced square
+  const E=e+(base==='AH'?100:0), N=n>=50?n-100:n;   // northing 50–99 here is south of the 00 line (AB sheets)
+  if(E<BOUNDS[0][1]||E>BOUNDS[1][1]||N<BOUNDS[0][0]||N>BOUNDS[1][0]) return {err:'GR ini jatuh di luar peta Sektor B. Semak angka GR, atau pilih sektor/lembar yang betul.'};
+  return {E,N}; }
+function baseOfSheet(k){ return k&&k.startsWith('AH')?'AH':'AG'; }
+function cellId(E,N){ return 'c'+Math.floor(E)+'_'+Math.floor(N); }
+function cellRef(ix,iy){ const em=ix-(ix>=100?100:0), nm=iy>=0?iy:iy+100; const s=sheetAt(ix+0.5,iy+0.5);
+  return String(em).padStart(2,'0')+String(nm).padStart(2,'0')+(s?' ('+s.k+')':''); }
+
+/* ---- map ---- */
+const map = L.map('map',{crs:L.CRS.Simple,minZoom:2,maxZoom:9,zoomSnap:0.5,attributionControl:false,boxZoom:false,
+  maxBounds:[[-30,-20],[50,176]],maxBoundsViscosity:0.8,zoomControl:false});
+L.control.zoom({position:'topright'}).addTo(map);
+L.tileLayer('tiles/{z}/{x}/{y}.jpg',{tileSize:2048,minNativeZoom:3,maxNativeZoom:7,minZoom:2,maxZoom:9,noWrap:true,bounds:BOUNDS,
+  errorTileUrl:'data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw=='}).addTo(map);
+map.fitBounds(BOUNDS);
+const zoomCls=()=>{ $('map').classList.toggle('zfar',map.getZoom()<5); $('map').classList.toggle('zvfar',map.getZoom()<3); };
+map.on('zoomend',zoomCls); zoomCls();
+const sheetLayer=L.layerGroup();
+SHEETS.forEach(s=>{
+  sheetLayer.addLayer(L.rectangle([[s.nn[0],s.e[0]],[s.nn[1],s.e[1]]],{color:'#1d2421',weight:0.8,opacity:0.35,dashArray:'5 6',fill:false,interactive:false}));
+  sheetLayer.addLayer(L.marker([Math.min(s.nn[1],33.3),s.e[0]],{interactive:false,keyboard:false,
+    icon:L.divIcon({className:'sheet-lbl',html:'<b>'+s.k+'</b> '+s.n,iconSize:null,iconAnchor:[-6,-6]})}));
+  $('fLembar').insertAdjacentHTML('beforeend','<option value="'+s.k+'">'+s.k+' '+s.n+'</option>'); });
+sheetLayer.addTo(map);
+$('showSheets').onchange=()=>{ if($('showSheets').checked) sheetLayer.addTo(map); else sheetLayer.remove(); };
+document.querySelectorAll('[data-jump]').forEach(b=>b.onclick=()=>map.flyToBounds(SEKTOR[b.dataset.jump],{duration:.6}));
+
+const covLayer=L.layerGroup().addTo(map), cellLayer=L.layerGroup().addTo(map), ronSelLayer=L.layerGroup().addTo(map), draftLayer=L.layerGroup().addTo(map), markLayer=L.layerGroup().addTo(map);
+let pickMarker=null;
+function showPick(E,N){ if(pickMarker) pickMarker.remove();
+  pickMarker=L.circleMarker([N,E],{radius:9,color:'#d4561c',weight:3,fill:false}).addTo(map); }
+
+map.on('mousemove',e=>{ const E=e.latlng.lng,N=e.latlng.lat;
+  $('cursorGr').textContent = inside(E,N) ? grLabel(E,N)+'  ·  petak '+cellRef(Math.floor(E),Math.floor(N)) : 'Di luar kawasan peta'; });
+function inside(E,N){ return E>=BOUNDS[0][1]&&E<=BOUNDS[1][1]&&N>=BOUNDS[0][0]&&N<=BOUNDS[1][0]; }
+
+/* ---- UI state ---- */
+let mode='titik', status='perhatian', marks=[], cells={}, canWrite=null, db=null, uid=null, selected=null, dlApi=null;
+function setMode(m){ mode=m; ['Titik','Petak','Rondaan'].forEach(x=>$('mode'+x).setAttribute('aria-pressed',m===x.toLowerCase()));
+  showTab(m==='petak'?'Petak':m==='rondaan'?'Rondaan':'Tanda'); $('map').classList.toggle('leaflet-crosshair',m!=='titik'); drawDraft(); }
+$('modeTitik').onclick=()=>setMode('titik'); $('modePetak').onclick=()=>setMode('petak'); $('modeRondaan').onclick=()=>setMode('rondaan');
+function showTab(t){ ['Tanda','Senarai','Petak','Rondaan','Stat'].forEach(x=>{ $('tab'+x).setAttribute('aria-selected',x===t); $('pane'+x).hidden=x!==t; });
+  $('side').classList.remove('min'); }
+$('tabTanda').onclick=()=>setMode('titik'); $('tabSenarai').onclick=()=>showTab('Senarai'); $('tabPetak').onclick=()=>setMode('petak'); $('tabRondaan').onclick=()=>setMode('rondaan'); $('tabStat').onclick=()=>{ showTab('Stat'); renderStat(); };
+document.querySelectorAll('#statusGrid button').forEach(b=>b.onclick=()=>{ status=b.dataset.st;
+  document.querySelectorAll('#statusGrid button').forEach(x=>x.setAttribute('aria-pressed',x===b)); });
+
+map.on('click',e=>{ const E=e.latlng.lng,N=e.latlng.lat; if(!inside(E,N)) return;
+  if(mode==='titik'){ const s=sheetAt(E,N); $('fLembar').value=s?s.k:'auto'; $('fGr').value=fmtGR(E,N,6); showWhere(E,N);
+    showPick(E,N); showTab('Tanda'); clearMsg(); }
+  else if(mode==='rondaan') ronClick(E,N);
+  else toggleCell(E,N); });
+
+/* ---- point form ---- */
+function clearMsg(){ $('titikErr').hidden=true; $('titikOk').hidden=true; }
+function msg(id,t){ const el=$(id); el.textContent=t; el.hidden=false; }
+function titikBase(){ const l=$('fLembar').value; return l==='auto'?SEK_BASE[$('fSek').value]:baseOfSheet(l); }
+function showWhere(E,N){ const w=$('fWhere'); w.hidden=false; w.innerHTML='Lokasi: <b>'+esc(sheetName(E,N))+'</b> · petak '+esc(cellRef(Math.floor(E),Math.floor(N))); }
+$('btnLihat').onclick=()=>{ clearMsg(); const p=parseGR(titikBase(),$('fGr').value); if(p.err) return msg('titikErr',p.err);
+  showPick(p.E,p.N); showWhere(p.E,p.N); map.flyTo([p.N,p.E],Math.max(map.getZoom(),7),{duration:.6}); };
+$('formTitik').addEventListener('submit',async ev=>{ ev.preventDefault(); clearMsg();
+  const p=parseGR(titikBase(),$('fGr').value); if(p.err) return msg('titikErr',p.err);
+  const nama=$('fNama').value.trim(); if(!nama) return msg('titikErr','Isi nama atau label untuk titik ini.');
+  if(!db) return msg('titikErr','Simpanan dikongsi tidak tersedia di paparan ini. Buka pautan sambil log masuk.');
+  if(canWrite===false) return msg('titikErr','Anda hanya boleh melihat. Minta pemilik beri akses Contributor untuk menanda.');
+  const digits=$('fGr').value.replace(/\D/g,'').length;
+  const rec={nama,kategori:$('fKat').value,sektor:$('fSek').value,catatan:$('fCat').value.trim(),E:+p.E.toFixed(4),N:+p.N.toFixed(4),
+    gr:fmtGR(p.E,p.N,digits),lembar:(sheetAt(p.E,p.N)||{}).k||''};
+  if(perluWaktu(rec.kategori)){ if(!$('fTarikhK').value) return msg('titikErr','Isi tarikh kejadian.');
+    rec.tarikhK=$('fTarikhK').value; rec.masaK=$('fMasaK').value||''; }
+  $('btnSimpanTitik').disabled=true;
+  try{ if(editMarkId) await db.collection('marks').doc(editMarkId).set(rec); else await db.collection('marks').add(rec);
+    msg('titikOk',(editMarkId?'Dikemas kini: ':'Disimpan: ')+nama+' ('+grLabel(p.E,p.N)+')'); $('fWhere').hidden=true;
+    resetTitikForm(); if(pickMarker){pickMarker.remove();pickMarker=null;} }
+  catch(e){ writeFail(e,'titikErr'); }
+  finally{ $('btnSimpanTitik').disabled=false; } });
+let editMarkId=null;
+const perluWaktu=k=>k==='sasaran'||k==='insiden';
+function nowHM(){ const d=new Date(); return pad2(d.getHours())+':'+pad2(d.getMinutes()); }
+function syncWaktu(){ const on=perluWaktu($('fKat').value); $('fWaktuRow').hidden=!on;
+  if(on&&!$('fTarikhK').value){ $('fTarikhK').value=todayStr(); $('fMasaK').value=nowHM(); } }
+$('fKat').addEventListener('change',syncWaktu);
+function resetTitikForm(){ editMarkId=null; $('fNama').value=''; $('fCat').value=''; $('fTarikhK').value=''; $('fMasaK').value='';
+  $('btnSimpanTitik').textContent='Simpan titik'; $('btnBatalEdit').hidden=true; syncWaktu(); }
+$('btnBatalEdit').onclick=()=>{ resetTitikForm(); clearMsg(); };
+function editTitik(m){ editMarkId=m.id; showTab('Tanda'); clearMsg();
+  $('fNama').value=m.nama||''; $('fKat').value=m.kategori||'lain'; $('fSek').value=m.sektor||''; $('fCat').value=m.catatan||'';
+  const s=sheetAt(m.E,m.N); $('fLembar').value=s?s.k:'auto'; $('fGr').value=m.gr&&/^\d+$/.test(m.gr)?m.gr:fmtGR(m.E,m.N,6);
+  $('fTarikhK').value=m.tarikhK||''; $('fMasaK').value=m.masaK||''; syncWaktu();
+  $('btnSimpanTitik').textContent='Simpan perubahan'; $('btnBatalEdit').hidden=false; showPick(m.E,m.N); $('formTitik').scrollIntoView({block:'nearest'}); }
+function writeFail(e,id){ if(e&&e.code==='sesi') return msg(id,'Sesi tamat. Sila log masuk semula.');
+  msg(id,(e&&e.message)||'Tak dapat simpan sekarang. Semak internet dan cuba lagi.'); }
+
+/* ---- cells ---- */
+let cellBusy=false;
+async function toggleCell(E,N){ const ix=Math.floor(E), iy=Math.floor(N), id='c'+ix+'_'+iy;
+  $('petakErr').hidden=true; showTab('Petak');
+  const cur=cells[id];
+  $('petakInfo').hidden=false;
+  const hist=cellHistory(id), dn=hist.find(isDone), pl=hist.filter(r=>!isDone(r)).pop();
+  $('petakInfo').innerHTML='<span>Petak <b>'+cellRef(ix,iy)+'</b></span><span>'+(cur?ST[cur.status]:'Tiada tanda')+'</span>'+
+    '<span style="flex-basis:100%">'+(dn?'Ronda terakhir '+fmtTarikh(dn.tarikh):'Belum dironda')+(pl?' · dirancang '+fmtTarikh(pl.tarikh):'')+'</span>';
+  if(!db) return msg('petakErr','Simpanan dikongsi tidak tersedia di paparan ini.');
+  if(canWrite===false) return msg('petakErr','Anda hanya boleh melihat petak.');
+  if(cellBusy) return; cellBusy=true;
+  try{ const ref=db.collection('petak').doc(id);
+    if(cur && cur.status===status) await ref.delete();
+    else await ref.set({ix,iy,status,catatan:$('pCat').value.trim(),petakRef:cellRef(ix,iy),lembar:sheetName(ix+.5,iy+.5)}); }
+  catch(e){ writeFail(e,'petakErr'); }
+  finally{ cellBusy=false; } }
+function drawCells(){ cellLayer.clearLayers(); const c={perhatian:0,larangan:0};
+  Object.entries(cells).forEach(([id,v])=>{ if(!ST[v.status]) return; c[v.status]++;
+    const r=L.rectangle([[v.iy,v.ix],[v.iy+1,v.ix+1]],{color:SCOL(v.status),weight:1.5,fillColor:SCOL(v.status),fillOpacity:.38,interactive:false});
+    cellLayer.addLayer(r); });
+  $('cPerhatian').textContent=c.perhatian; $('cLarangan').textContent=c.larangan; }
+
+/* ---- marks ---- */
+function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function drawMarks(){ markLayer.clearLayers();
+  marks.forEach(m=>{ const c=KCOL(m.kategori);
+    const cm=L.circleMarker([m.N,m.E],{radius:7,color:'#fff',weight:2,fillColor:c,fillOpacity:1});
+    cm.bindTooltip(esc(m.nama),{permanent:true,direction:'right',offset:[8,0],className:'mk-label'});
+    cm.on('click',ev=>{ L.DomEvent.stopPropagation(ev); select(m.id); });
+    markLayer.addLayer(cm); });
+  renderList(); if(selected) renderDetail();
+  $('posList').innerHTML=marks.filter(m=>m.kategori==='pos').map(m=>'<option value="'+esc(m.nama)+'"></option>').join(''); }
+function filtered(){ const q=$('qCari').value.trim().toLowerCase(), s=$('qSek').value;
+  return marks.filter(m=>(!s||m.sektor===s)&&(!q||(m.nama||'').toLowerCase().includes(q)||fmtGR(m.E,m.N,6).includes(q.replace(/\s/g,''))||sheetName(m.E,m.N).toLowerCase().includes(q))); }
+function renderList(){ const L2=filtered(), el=$('list');
+  if(!marks.length){ el.innerHTML='<div class="empty">Belum ada titik. Taip GR di tab Tanda atau ketik peta untuk tanda yang pertama.</div>'; return; }
+  if(!L2.length){ el.innerHTML='<div class="empty">Tiada padanan.</div>'; return; }
+  el.innerHTML=L2.map(m=>'<div class="item" data-id="'+esc(m.id)+'" tabindex="0"><i class="dot" style="background:'+KCOL(m.kategori)+'"></i>'+
+    '<div style="min-width:0"><div class="t">'+esc(m.nama)+'</div><div class="m">'+esc(KAT[m.kategori]||'')+(m.sektor?' · '+esc(m.sektor):'')+'</div></div>'+
+    '<span class="gr">'+fmtGR(m.E,m.N,6)+'</span></div>').join('');
+  el.querySelectorAll('.item').forEach(it=>{ const go=()=>select(it.dataset.id); it.onclick=go; it.onkeydown=e=>{ if(e.key==='Enter') go(); }; }); }
+$('qCari').oninput=renderList; $('qSek').onchange=renderList;
+function select(id){ selected=id; const m=marks.find(x=>x.id===id); if(!m) return;
+  map.flyTo([m.N,m.E],Math.max(map.getZoom(),7),{duration:.6}); showTab('Tanda'); renderDetail(); }
+let confirmDel=false;
+function renderDetail(){ const m=marks.find(x=>x.id===selected), el=$('selDetail');
+  if(!m){ el.hidden=true; return; } el.hidden=false; confirmDel=false;
+  el.className='detail';
+  el.innerHTML='<h2>'+esc(KAT[m.kategori]||'Titik')+(m.sektor?' · Sektor '+esc(m.sektor):'')+'</h2>'+
+    '<div style="font-weight:700;font-size:17px">'+esc(m.nama)+'</div><div class="gr">GR '+fmtGR(m.E,m.N,6)+'</div><div>Lembar '+esc(sheetName(m.E,m.N))+'</div>'+
+    '<div class="m" style="font:12px var(--mono);color:var(--muted)">Petak '+cellRef(Math.floor(m.E),Math.floor(m.N))+(m.masa?' · '+esc(m.masa.slice(0,10)):'')+'</div>'+
+    (m.tarikhK?'<div><b>Kejadian:</b> '+esc(fmtTarikh(m.tarikhK))+(m.masaK?', jam '+esc(m.masaK):'')+'</div>':(perluWaktu(m.kategori)?'<p class="hint">Tarikh dan masa kejadian belum diisi. Tekan Kemaskini.</p>':''))+
+    (m.catatan?'<p class="hint" style="color:var(--ink)">'+esc(m.catatan)+'</p>':'')+
+    '<div class="actions"><button class="btn ghost" id="dTutup" type="button">Tutup</button>'+
+    (canWrite!==false&&db?'<button class="btn ghost" id="dEdit" type="button">Kemaskini</button><button class="btn ghost" id="dPadam" type="button">Padam titik</button>':'')+'</div><p class="err" id="dErr" hidden></p>';
+  $('dTutup').onclick=()=>{ selected=null; el.hidden=true; };
+  const de=$('dEdit'); if(de) de.onclick=()=>editTitik(m);
+  const pd=$('dPadam'); if(pd) pd.onclick=async()=>{ if(!confirmDel){ confirmDel=true; pd.textContent='Ketik lagi untuk padam'; pd.className='btn danger'; return; }
+    try{ await db.collection('marks').doc(m.id).delete(); selected=null; el.hidden=true; } catch(e){ writeFail(e,'dErr'); } }; }
+
+/* ---- export ---- */
+function csv(){ const rows=[['Nama','Kategori','Sektor','GR','Lembar peta','Petak','Catatan','Tarikh simpan','Tarikh kejadian','Masa kejadian']].concat(marks.map(m=>[m.nama,KAT[m.kategori]||'',m.sektor||'',fmtGR(m.E,m.N,6),sheetName(m.E,m.N),cellRef(Math.floor(m.E),Math.floor(m.N)),m.catatan||'',(m.masa||'').slice(0,10),m.tarikhK||'',m.masaK||'']));
+  return rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\r\n'); }
+$('btnCsv').onclick=async()=>{ const em=$('exportMsg'); em.hidden=false;
+  if(!dlApi){ em.textContent='Muat turun tidak tersedia di paparan ini. Guna "Salin senarai".'; return; }
+  try{ await dlApi.save({filename:'tanda-sektor-B.csv',data:new Blob(['﻿'+csv()],{type:'text/csv'})}); em.textContent='Fail CSV dihantar untuk disimpan.'; }
+  catch(e){ em.textContent='Muat turun dibatalkan.'; } };
+$('btnSalin').onclick=async()=>{ const em=$('exportMsg'); em.hidden=false;
+  const t=marks.map(m=>m.nama+' — '+grLabel(m.E,m.N)+(m.sektor?' ('+m.sektor+')':'')).join('\n');
+  try{ await navigator.clipboard.writeText(t); em.textContent='Senarai disalin ('+marks.length+' titik).'; }
+  catch(e){ em.textContent='Tak dapat salin automatik. Pilih senarai secara manual.'; } };
+
+/* ---- rondaan: plan + record in one; a planned patrol counts as done once its date arrives ---- */
+let rons=[], coverage={}, route=[], finds=[], clickFor='laluan', formOpen=false, editId=null, ronSel=null, ronBusy=false;
+const pad2=n=>String(n).padStart(2,'0');
+function todayStr(){ const d=new Date(); return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
+function fmtTarikh(s){ if(!s) return ''; const [y,m,d]=s.split('-'); const B=['Jan','Feb','Mac','Apr','Mei','Jun','Jul','Ogo','Sep','Okt','Nov','Dis']; return (+d)+' '+B[(+m)-1]+' '+y; }
+function ageDays(s){ const t=new Date(s+'T00:00:00'), n=new Date(todayStr()+'T00:00:00'); return Math.round((n-t)/86400000); }
+const isDone=r=>r.tarikh<=todayStr();
+function statusText(r){ if(isDone(r)) return 'Dah dironda'; const d=-ageDays(r.tarikh); return 'Dirancang · '+(d===1?'esok':d+' hari lagi'); }
+const statusCol=r=>isDone(r)?css('--st-dironda'):css('--st-belum');
+function routeKm(r){ let k=0; for(let i=1;i<r.length;i++) k+=Math.hypot(r[i][0]-r[i-1][0],r[i][1]-r[i-1][1]); return k; }
+function routeCells(r){ const s=new Set(); const add=(E,N)=>s.add('c'+Math.floor(E)+'_'+Math.floor(N));
+  if(r.length) add(r[0][0],r[0][1]);
+  for(let i=1;i<r.length;i++){ const [a,b]=r[i-1],[c,d]=r[i]; const n=Math.max(1,Math.ceil(Math.hypot(c-a,d-b)/0.05));
+    for(let j=0;j<=n;j++) add(a+(c-a)*j/n,b+(d-b)*j/n); }
+  return [...s]; }
+function setClickFor(v){ clickFor=v; $('cfLaluan').setAttribute('aria-pressed',v==='laluan'); $('cfPenemuan').setAttribute('aria-pressed',v==='penemuan'); }
+$('cfLaluan').onclick=()=>setClickFor('laluan'); $('cfPenemuan').onclick=()=>setClickFor('penemuan');
+
+function openForm(r){ editId=r?r.id:null; formOpen=true; $('ronErr').hidden=true; $('ronOk').hidden=true;
+  $('rFormTitle').textContent=r?'Kemaskini rondaan':'Set rondaan baru';
+  $('rTarikh').value=r?r.tarikh:todayStr(); $('rSektor').value=(r&&r.sektor)||$('rfSek').value||'B1';
+  $('rKeluar').value=r?(r.keluar||''):'07:00'; $('rMasuk').value=r?(r.masuk||''):'15:00';
+  $('rPos').value=r?(r.pos||''):''; $('rKetua').value=r?(r.ketua||''):''; $('rKekuatan').value=r?(r.kekuatan||''):''; $('rCatatan').value=r?(r.catatan||''):'';
+  route=r?(r.laluan||[]).map(p=>[p.E,p.N]):[]; finds=r?(r.penemuan||[]).map(f=>Object.assign({},f)):[];
+  setClickFor(r&&isDone(r)?'penemuan':'laluan');
+  renderFinds(); $('ronDetail').hidden=true; ronSel=null; ronSelLayer.clearLayers();
+  $('ronForm').hidden=false; $('rBaru').hidden=true; drawDraft(); $('ronForm').scrollIntoView({block:'nearest'}); }
+function closeForm(){ formOpen=false; editId=null; route=[]; finds=[]; $('ronForm').hidden=true; $('rBaru').hidden=false;
+  if(pickMarker){pickMarker.remove();pickMarker=null;} drawDraft(); }
+$('rBaru').onclick=()=>openForm(null); $('rBatal').onclick=closeForm;
+
+function ronClick(E,N){
+  if(!formOpen){ showRonDetailCell(Math.floor(E),Math.floor(N)); return; }
+  if(clickFor==='laluan'){ route.push([+E.toFixed(3),+N.toFixed(3)]); drawDraft(); }
+  else { $('pnGr').value=fmtGR(E,N,6); showPick(E,N); } }
+$('rvTambah').onclick=()=>{ $('ronErr').hidden=true; const p=parseGR(SEK_BASE[$('rSektor').value],$('rvGr').value); if(p.err) return msg('ronErr',p.err);
+  route.push([+p.E.toFixed(3),+p.N.toFixed(3)]); $('rvGr').value=''; drawDraft(); map.panTo([p.N,p.E]); };
+$('rUndo').onclick=e=>{ e.preventDefault(); route.pop(); drawDraft(); };
+$('rClear').onclick=e=>{ e.preventDefault(); route=[]; drawDraft(); };
+function drawDraft(){ draftLayer.clearLayers();
+  const km=routeKm(route), nc=routeCells(route).length;
+  $('rJarak').textContent=route.length+' titik · '+km.toFixed(1)+' km · '+nc+' petak';
+  if(mode!=='rondaan'||!formOpen) return;
+  routeCells(route).forEach(id=>{ const [ix,iy]=id.slice(1).split('_').map(Number);
+    draftLayer.addLayer(L.rectangle([[iy,ix],[iy+1,ix+1]],{color:css('--accent'),weight:1,fillOpacity:.12,interactive:false})); });
+  if(route.length>1) draftLayer.addLayer(L.polyline(route.map(p=>[p[1],p[0]]),{color:css('--accent'),weight:4,dashArray:'8 6',interactive:false}));
+  route.forEach((p,i)=>draftLayer.addLayer(L.circleMarker([p[1],p[0]],{radius:i===0||i===route.length-1?6:4,color:'#fff',weight:2,fillColor:css('--accent'),fillOpacity:1,interactive:false})));
+  finds.forEach(f=>{ if(typeof f.E==='number') draftLayer.addLayer(L.circleMarker([f.N,f.E],{radius:7,color:'#000',weight:2,fillColor:'#ffd43b',fillOpacity:1,interactive:false})); }); }
+
+$('pnTambah').onclick=()=>{ $('ronErr').hidden=true; const jenis=$('pnJenis').value;
+  let f={jenis,ket:$('pnKet').value.trim()};
+  if($('pnGr').value.trim()){ const p=parseGR(SEK_BASE[$('rSektor').value],$('pnGr').value); if(p.err) return msg('ronErr','Penemuan: '+p.err);
+    const dg=$('pnGr').value.replace(/\D/g,'').length; Object.assign(f,{E:+p.E.toFixed(3),N:+p.N.toFixed(3),gr:fmtGR(p.E,p.N,dg),lembar:(sheetAt(p.E,p.N)||{}).k||''}); }
+  else if(jenis!=='Tiada penemuan') return msg('ronErr','Masukkan GR penemuan, atau pilih "Ambil GR penemuan" dan ketik peta.');
+  finds.push(f); $('pnGr').value=''; $('pnKet').value=''; if(pickMarker){pickMarker.remove();pickMarker=null;} renderFinds(); drawDraft(); };
+function renderFinds(){ const el=$('pnList'); el.hidden=!finds.length;
+  el.innerHTML=finds.map((f,i)=>'<div class="pn"><span><b>'+esc(f.jenis)+'</b>'+(typeof f.E==='number'?' · <span style="font-family:var(--mono)">'+esc(grLabel(f.E,f.N))+'</span>':'')+(f.ket?'<br>'+esc(f.ket):'')+'</span><button type="button" data-i="'+i+'">Buang</button></div>').join('');
+  el.querySelectorAll('button').forEach(b=>b.onclick=()=>{ finds.splice(+b.dataset.i,1); renderFinds(); drawDraft(); }); }
+$('rPos').addEventListener('change',()=>{ const m=marks.find(x=>x.kategori==='pos'&&x.nama===$('rPos').value); if(m&&m.sektor) $('rSektor').value=m.sektor; });
+
+$('rSimpan').onclick=async()=>{ $('ronErr').hidden=true;
+  const tarikh=$('rTarikh').value; if(!tarikh) return msg('ronErr','Isi tarikh rondaan.');
+  if(!route.length) return msg('ronErr','Tambah sekurang-kurangnya satu titik laluan (ketik peta atau taip GR).');
+  if(!$('rPos').value.trim()) return msg('ronErr','Isi nama pos.');
+  if(!db) return msg('ronErr','Simpanan dikongsi tidak tersedia di paparan ini.');
+  if(canWrite===false) return msg('ronErr','Anda hanya boleh melihat. Minta akses Contributor untuk set rondaan.');
+  if(ronBusy) return; ronBusy=true; $('rSimpan').disabled=true;
+  const petak=routeCells(route), old=editId?rons.find(x=>x.id===editId):null;
+  const rec={tarikh,keluar:$('rKeluar').value,masuk:$('rMasuk').value,pos:$('rPos').value.trim(),sektor:$('rSektor').value,
+    ketua:$('rKetua').value.trim(),kekuatan:$('rKekuatan').value.trim(),laluan:route.map(p=>({E:p[0],N:p[1]})),
+    jarakKm:+routeKm(route).toFixed(2),petak,penemuan:finds,catatan:$('rCatatan').value.trim(),
+    oleh:(old&&old.oleh)||uid||'',masa:(old&&old.masa)||new Date().toISOString(),diubah:new Date().toISOString()};
+  try{ if(editId) await db.collection('rondaan').doc(editId).set(rec); else await db.collection('rondaan').add(rec);
+    const st=isDone(rec)?'dah dironda':'dirancang';
+    closeForm(); msg('ronOk','Rondaan '+rec.pos+' '+fmtTarikh(tarikh)+' disimpan ('+st+'): '+rec.jarakKm.toFixed(1)+' km, '+petak.length+' petak.'); }
+  catch(e){ writeFail(e,'ronErr'); }
+  finally{ ronBusy=false; $('rSimpan').disabled=false; } };
+
+function ronFiltered(){ const s=$('rfSek').value, h=+$('rfHari').value;
+  return rons.filter(r=>(!s||r.sektor===s)&&(!isDone(r)||!h||ageDays(r.tarikh)<=h)); }
+function computeCoverage(){ coverage={};
+  ronFiltered().forEach(r=>(r.petak||[]).forEach(id=>{ const [ix,iy]=id.slice(1).split('_').map(Number);
+    const c=coverage[id]||(coverage[id]={ix,iy,done:null,plan:null,n:0});
+    if(isDone(r)){ c.n++; if(!c.done||r.tarikh>c.done) c.done=r.tarikh; } else if(!c.plan||r.tarikh<c.plan) c.plan=r.tarikh; })); }
+function drawCoverage(){ covLayer.clearLayers(); if(!$('rCov').checked) return;
+  Object.values(coverage).forEach(c=>{ const col=c.done?css('--st-dironda'):css('--st-belum');
+    covLayer.addLayer(L.rectangle([[c.iy,c.ix],[c.iy+1,c.ix+1]],{color:col,weight:1,fillColor:col,fillOpacity:.32,interactive:false}));
+    const t=c.done||c.plan, hb=t.slice(8,10)+'/'+t.slice(5,7);
+    covLayer.addLayer(L.marker([c.iy+0.5,c.ix+0.5],{interactive:false,keyboard:false,
+      icon:L.divIcon({className:'cov-lbl'+(c.done?'':' plan'),html:'<span>'+hb+'</span>',iconSize:null,iconAnchor:[0,0]})})); }); }
+$('rCov').onchange=drawCoverage;
+function refreshRons(){ computeCoverage(); drawCoverage(); renderRons(); }
+function renderRons(){ const list=ronFiltered().slice().sort((a,b)=>{ const da=isDone(a),dbb=isDone(b);
+    if(da!==dbb) return da?1:-1; return da?b.tarikh.localeCompare(a.tarikh):a.tarikh.localeCompare(b.tarikh); }), el=$('ronList');
+  $('rcRancang').textContent=list.filter(r=>!isDone(r)).length; $('rcSelesai').textContent=list.filter(isDone).length;
+  $('rcKm').textContent=list.filter(isDone).reduce((a,r)=>a+(r.jarakKm||0),0).toFixed(1);
+  $('rcPn').textContent=list.reduce((a,r)=>a+(r.penemuan||[]).filter(f=>f.jenis!=='Tiada penemuan').length,0);
+  if(!rons.length){ el.innerHTML='<div class="empty">Belum ada rondaan. Tekan "+ Set rondaan" untuk mula.</div>'; return; }
+  if(!list.length){ el.innerHTML='<div class="empty">Tiada rondaan dalam tapisan ini.</div>'; return; }
+  el.innerHTML=list.map(r=>{ const pn=(r.penemuan||[]).filter(f=>f.jenis!=='Tiada penemuan').length;
+    return '<div class="item" data-id="'+esc(r.id)+'" tabindex="0"><i class="dot" style="background:'+statusCol(r)+'"></i>'+
+    '<div style="min-width:0"><div class="t">'+esc(r.pos)+' · '+esc(r.sektor||'')+'</div><div class="m">'+esc(fmtTarikh(r.tarikh))+' · '+esc(statusText(r))+'</div></div>'+
+    '<span class="gr">'+(r.jarakKm||0).toFixed(1)+' km'+(pn?' · '+pn+' ⚑':'')+'</span></div>'; }).join('');
+  el.querySelectorAll('.item').forEach(it=>{ const go=()=>selectRon(it.dataset.id); it.onclick=go; it.onkeydown=e=>{ if(e.key==='Enter') go(); }; }); }
+$('rfSek').onchange=refreshRons; $('rfHari').onchange=refreshRons;
+let ronDelConfirm=false;
+function selectRon(id){ if(formOpen) closeForm(); ronSel=id; const r=rons.find(x=>x.id===id); ronSelLayer.clearLayers(); const el=$('ronDetail');
+  if(!r){ el.hidden=true; return; }
+  const pts=(r.laluan||[]).map(p=>[p.N,p.E]), col=isDone(r)?'#1c63d6':'#b08900';
+  if(pts.length>1) ronSelLayer.addLayer(L.polyline(pts,{color:col,weight:5,interactive:false}));
+  pts.forEach(p=>ronSelLayer.addLayer(L.circleMarker(p,{radius:4,color:'#fff',weight:2,fillColor:col,fillOpacity:1,interactive:false})));
+  (r.penemuan||[]).forEach(f=>{ if(typeof f.E==='number') ronSelLayer.addLayer(L.circleMarker([f.N,f.E],{radius:7,color:'#000',weight:2,fillColor:'#ffd43b',fillOpacity:1}).bindTooltip(esc(f.jenis),{className:'mk-label',direction:'right',offset:[8,0]})); });
+  if(pts.length) map.flyToBounds(L.latLngBounds(pts).pad(0.4),{duration:.6,maxZoom:8});
+  ronDelConfirm=false; el.hidden=false; el.className='detail';
+  const g=(r.laluan||[]).map(p=>fmtGR(p.E,p.N,6)), w=db&&canWrite!==false;
+  el.innerHTML='<h2><i class="sw" style="display:inline-block;vertical-align:-2px;background:'+statusCol(r)+'"></i> '+esc(statusText(r))+' · Sektor '+esc(r.sektor||'')+'</h2><div style="font-weight:700;font-size:17px">'+esc(r.pos)+'</div>'+
+    '<div class="m" style="font:12px var(--mono);color:var(--muted)">'+esc(fmtTarikh(r.tarikh))+' · '+esc(r.keluar||'')+'–'+esc(r.masuk||'')+' · '+(r.jarakKm||0).toFixed(1)+' km · '+(r.petak||[]).length+' petak</div>'+
+    ((r.ketua||r.kekuatan)?'<div>'+esc(r.ketua||'')+(r.kekuatan?' · '+esc(r.kekuatan):'')+'</div>':'')+
+    '<div class="hint" style="font-family:var(--mono);font-size:12px">'+esc(g.join(' → '))+'</div>'+
+    ((r.penemuan||[]).length?'<div>'+r.penemuan.map(f=>'<div class="hint" style="color:var(--ink)">⚑ '+esc(f.jenis)+(typeof f.E==='number'?' · '+esc(grLabel(f.E,f.N)):'')+(f.ket?' — '+esc(f.ket):'')+'</div>').join('')+'</div>':(isDone(r)?'<p class="hint">Belum ada penemuan direkod. Tekan Kemaskini untuk tambah.</p>':''))+
+    (r.catatan?'<p class="hint" style="color:var(--ink)">'+esc(r.catatan)+'</p>':'')+
+    '<div class="actions"><button class="btn ghost" id="rdTutup" type="button">Tutup</button>'+(w?'<button class="btn ghost" id="rdEdit" type="button">Kemaskini</button><button class="btn ghost" id="rdPadam" type="button">Padam</button>':'')+'</div><p class="err" id="rdErr" hidden></p>';
+  $('rdTutup').onclick=()=>{ ronSel=null; el.hidden=true; ronSelLayer.clearLayers(); };
+  const ed=$('rdEdit'); if(ed) ed.onclick=()=>openForm(r);
+  const pd=$('rdPadam'); if(pd) pd.onclick=async()=>{ if(!ronDelConfirm){ ronDelConfirm=true; pd.textContent='Ketik lagi untuk padam'; pd.className='btn danger'; return; }
+    try{ await db.collection('rondaan').doc(r.id).delete(); ronSel=null; el.hidden=true; ronSelLayer.clearLayers(); } catch(e){ writeFail(e,'rdErr'); } };
+  el.scrollIntoView({block:'nearest'}); }
+function cellHistory(id){ return rons.filter(r=>(r.petak||[]).includes(id)).sort((a,b)=>b.tarikh.localeCompare(a.tarikh)); }
+function showRonDetailCell(ix,iy){ const el=$('ronDetail'); el.hidden=false; el.className='detail'; ronSelLayer.clearLayers(); ronSel=null;
+  const hist=cellHistory('c'+ix+'_'+iy);
+  ronSelLayer.addLayer(L.rectangle([[iy,ix],[iy+1,ix+1]],{color:'#1c63d6',weight:3,fill:false,interactive:false}));
+  el.innerHTML='<h2>Sejarah petak</h2><div style="font:600 16px var(--mono)">'+cellRef(ix,iy)+'</div><div class="hint">'+esc(sheetName(ix+.5,iy+.5))+'</div>'+
+    (hist.length?hist.map(r=>'<div class="hint" style="color:var(--ink)"><i class="sw" style="display:inline-block;vertical-align:-2px;background:'+statusCol(r)+'"></i> '+esc(fmtTarikh(r.tarikh))+' · '+esc(r.pos)+' · '+esc(statusText(r))+'</div>').join(''):'<p class="hint">Petak ini belum pernah dironda atau dirancang.</p>')+
+    '<div class="actions"><button class="btn ghost" id="rdTutup" type="button">Tutup</button></div>';
+  $('rdTutup').onclick=()=>{ el.hidden=true; ronSelLayer.clearLayers(); }; }
+
+$('rCsv').onclick=async()=>{ const em=$('rCsvMsg'); em.hidden=false;
+  if(!dlApi){ em.textContent='Muat turun tidak tersedia di paparan ini.'; return; }
+  const rows=[['Tarikh','Status','Keluar','Masuk','Pos','Sektor','Ketua','Kekuatan','Jarak (km)','Bil petak','Petak','Laluan GR','Penemuan','Catatan']].concat(
+    ronFiltered().map(r=>[r.tarikh,isDone(r)?'Dah dironda':'Dirancang',r.keluar||'',r.masuk||'',r.pos,r.sektor||'',r.ketua||'',r.kekuatan||'',(r.jarakKm||0).toFixed(2),(r.petak||[]).length,
+      (r.petak||[]).map(id=>{ const [ix,iy]=id.slice(1).split('_').map(Number); return cellRef(ix,iy); }).join('; '),
+      (r.laluan||[]).map(p=>fmtGR(p.E,p.N,6)).join(' > '),
+      (r.penemuan||[]).map(f=>f.jenis+(typeof f.E==='number'?' @ GR '+fmtGR(f.E,f.N,6)+' '+sheetName(f.E,f.N):'')+(f.ket?' ('+f.ket+')':'')).join('; '),r.catatan||'']));
+  const t=rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\r\n');
+  try{ await dlApi.save({filename:'rondaan-sektor-B.csv',data:new Blob(['﻿'+t],{type:'text/csv'})}); em.textContent='Fail CSV dihantar untuk disimpan.'; }
+  catch(e){ em.textContent='Muat turun dibatalkan.'; } };
+setInterval(()=>{ if(rons.length) refreshRons(); },10*60*1000);   // dates roll over without a reload
+
+/* ---- statistik sasaran ---- */
+const HARI=['Ahd','Isn','Sel','Rab','Kha','Jum','Sab'];
+let tipEl=null;
+function tip(e,t){ if(!tipEl){ tipEl=document.createElement('div'); tipEl.className='tip'; document.body.appendChild(tipEl); }
+  tipEl.textContent=t; tipEl.hidden=false; const w=tipEl.offsetWidth; tipEl.style.left=Math.min(window.innerWidth-w-8,Math.max(8,e.clientX-w/2))+'px'; tipEl.style.top=(e.clientY-34)+'px'; }
+function untip(){ if(tipEl) tipEl.hidden=true; }
+function barChart(el,title,labels,values,tickEvery,tipFmt){ const max=Math.max(1,...values), n=values.length;
+  el.innerHTML='<div class="cap"><b style="color:var(--ink)">'+esc(title)+'</b><span>maks '+Math.max(...values,0)+'</span></div>'+
+    '<div class="bars" style="grid-template-columns:repeat('+n+',1fr)">'+values.map((v,i)=>'<div class="b'+(v?'':' zero')+'" tabindex="0" data-i="'+i+'"><i style="height:'+(v/max*100)+'%"></i></div>').join('')+'</div>'+
+    '<div class="ticks" style="grid-template-columns:repeat('+n+',1fr)">'+labels.map((l,i)=>'<span>'+(i%tickEvery===0?esc(l):'')+'</span>').join('')+'</div>';
+  el.querySelectorAll('.b').forEach(b=>{ const i=+b.dataset.i, t=tipFmt(labels[i],values[i]);
+    b.setAttribute('aria-label',t); b.onmousemove=e=>tip(e,t); b.onmouseleave=untip; b.onfocus=()=>{ const r=b.getBoundingClientRect(); tip({clientX:r.left+r.width/2,clientY:r.top},t); }; b.onblur=untip; }); }
+function statRows(){ const k=$('sKat').value, s=$('sSek').value, h=+$('sHari').value;
+  return marks.filter(m=>(k==='both'?perluWaktu(m.kategori):m.kategori===k)&&(!s||m.sektor===s))
+    .map(m=>{ const tk=m.tarikhK||(m.masa||'').slice(0,10), mk=m.masaK||''; return Object.assign({},m,{_t:tk,_m:mk,_anggar:!m.tarikhK}); })
+    .filter(m=>/^\d{4}-\d{2}-\d{2}$/.test(m._t)&&(!h||(ageDays(m._t)<=h&&ageDays(m._t)>=0))); }
+function renderStat(){ const rows=statRows(), all7=rows.filter(m=>ageDays(m._t)<=7&&ageDays(m._t)>=0).length;
+  $('stJumlah').textContent=rows.length; $('st7').textContent=all7;
+  const jam=Array(24).fill(0), hari=Array(7).fill(0);
+  rows.forEach(m=>{ if(/^\d{2}:/.test(m._m)) jam[+m._m.slice(0,2)]++; hari[new Date(m._t+'T00:00:00').getDay()]++; });
+  const hj=jam.indexOf(Math.max(...jam)), hh=hari.indexOf(Math.max(...hari));
+  $('stJam').textContent=Math.max(...jam)?pad2(hj)+'00–'+pad2((hj+1)%24)+'00':'–';
+  $('stHari').textContent=Math.max(...hari)?['Ahad','Isnin','Selasa','Rabu','Khamis','Jumaat','Sabtu'][hh]:'–';
+  barChart($('chJam'),'Ikut waktu (jam)',jam.map((_,i)=>pad2(i)),jam,3,(l,v)=>'Jam '+l+'00–'+l+'59: '+v);
+  barChart($('chHari'),'Ikut hari',HARI,hari,1,(l,v)=>l+': '+v);
+  const nd=+$('sHari').value||30, days=[], vals=[];
+  for(let i=nd-1;i>=0;i--){ const d=new Date(); d.setDate(d.getDate()-i); const s=d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());
+    days.push(s); vals.push(rows.filter(m=>m._t===s).length); }
+  barChart($('chTarikh'),'Ikut tarikh ('+nd+' hari)',days.map(s=>s.slice(8,10)+'/'+s.slice(5,7)),vals,Math.max(1,Math.ceil(nd/8)),(l,v)=>l+': '+v);
+  const sek={}; rows.forEach(m=>{ const k=m.sektor||'Luar'; sek[k]=(sek[k]||0)+1; });
+  $('tbSek').innerHTML='<tr><th>Sektor</th><th style="text-align:right">Bil</th><th style="text-align:right">%</th></tr>'+
+    (Object.keys(sek).sort().map(k=>'<tr><td>'+esc(k)+'</td><td class="n">'+sek[k]+'</td><td class="n">'+Math.round(sek[k]/rows.length*100)+'%</td></tr>').join('')||'<tr><td colspan="3" class="hint">Tiada data.</td></tr>');
+  const rec=rows.slice().sort((a,b)=>(b._t+b._m).localeCompare(a._t+a._m)).slice(0,15);
+  $('stList').innerHTML=rec.length?rec.map(m=>'<div class="item" data-id="'+esc(m.id)+'" tabindex="0"><i class="dot" style="background:'+KCOL(m.kategori)+'"></i>'+
+    '<div style="min-width:0"><div class="t">'+esc(m.nama)+'</div><div class="m">'+esc(fmtTarikh(m._t))+(m._m?' · '+esc(m._m):'')+(m.sektor?' · '+esc(m.sektor):'')+(m._anggar?' · tarikh simpan':'')+'</div></div>'+
+    '<span class="gr">'+fmtGR(m.E,m.N,6)+'</span></div>').join(''):'<div class="empty">Tiada sasaran dalam tempoh ini. Tanda titik dengan kategori Sasaran dan isi tarikh serta masa kejadian.</div>';
+  $('stList').querySelectorAll('.item').forEach(it=>{ it.onclick=()=>select(it.dataset.id); it.onkeydown=e=>{ if(e.key==='Enter') select(it.dataset.id); }; });
+  const ang=rows.filter(m=>m._anggar).length; $('stNota').hidden=!ang;
+  $('stNota').textContent=ang+' rekod belum ada tarikh/masa kejadian, jadi tarikh simpan digunakan dan waktunya tidak dikira. Buka rekod tu dan tekan Kemaskini untuk isi.'; }
+['sKat','sSek','sHari'].forEach(id=>$(id).onchange=renderStat);
+
+/* ---- access banner ---- */
+function applyAccess(){ $('accessBanner').hidden=true; }
+
+/* ---- server: Google Apps Script (OKP Sektor B) ---- */
+const API='https://script.google.com/macros/s/AKfycbxZpbWthmqsUsfeyIuOsaiTieciUR0R6C2BqzYyZgs_W3i43bVNErEweFbSLFI1SKyPOg/exec';
+let token=null; try{ token=localStorage.getItem('petaToken'); }catch(e){}
+let loadTimer=null, loading=false;
+async function api(a,body){
+  let res;
+  try{ res=await fetch(API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(Object.assign({src:'peta-sektor-b',a,token},body||{}))}); }
+  catch(e){ throw {code:'rangkaian',message:'Tiada sambungan ke pelayan. Semak internet dan cuba lagi.'}; }
+  let j; try{ j=await res.json(); }catch(e){ throw {code:'pelayan',message:'Pelayan tidak memberi jawapan yang sah. Cuba lagi.'}; }
+  if(!j.ok){ if(j.expired&&a!=='login'){ showLogin(j.error); throw {code:'sesi',message:j.error}; } throw {code:'pelayan',message:j.error||'Ralat pelayan.'}; }
+  return j; }
+db={ collection:col=>({
+  add:async rec=>{ await api('simpan',{col,rec}); muat(); },
+  doc:id=>({ set:async rec=>{ await api('simpan',{col,id,rec}); muat(); }, delete:async()=>{ await api('padam',{col,id}); muat(); } }) }) };
+dlApi={ save:async({filename,data})=>{ const u=URL.createObjectURL(data), a=document.createElement('a'); a.href=u; a.download=filename; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),5000); } };
+
+async function muat(){ if(loading||!token) return; loading=true; $('syncTxt').textContent='Mengemas kini…';
+  try{ const j=await api('data');
+    marks=(j.marks||[]).filter(m=>typeof m.E==='number'&&typeof m.N==='number')
+      .sort((a,b)=>(a.sektor||'Z').localeCompare(b.sektor||'Z')||String(a.nama).localeCompare(String(b.nama)));
+    drawMarks(); if(!$('paneStat').hidden) renderStat();
+    cells={}; (j.petak||[]).forEach(v=>{ if(v&&typeof v.ix==='number') cells[v.id]=v; }); drawCells();
+    rons=(j.rondaan||[]).filter(r=>r&&typeof r.tarikh==='string'&&Array.isArray(r.petak))
+      .sort((a,b)=>b.tarikh.localeCompare(a.tarikh)||String(b.keluar||'').localeCompare(String(a.keluar||'')));
+    refreshRons(); if(ronSel&&!formOpen) selectRon(ronSel);
+    const d=new Date(); $('syncTxt').textContent='Dikemas kini '+pad2(d.getHours())+':'+pad2(d.getMinutes()); }
+  catch(e){ if(e.code!=='sesi') $('syncTxt').textContent='Gagal kemas kini'; if(!marks.length) $('list').innerHTML='<div class="empty">'+esc(e.message||'Data tidak dapat dimuatkan.')+'</div>'; }
+  finally{ loading=false; } }
+
+function showLogin(err){ token=null; try{ localStorage.removeItem('petaToken'); }catch(e){}
+  clearInterval(loadTimer); $('userChip').hidden=true; $('login').hidden=false;
+  const le=$('lErr'); le.hidden=!err; le.textContent=err||''; setTimeout(()=>$('lNo').focus(),50); }
+function mula(user){ uid=user.no; canWrite=true; $('login').hidden=true; $('userChip').hidden=false;
+  $('userName').textContent=((user.pkt||'')+' '+(user.nama||'')).trim()||user.no;
+  muat(); clearInterval(loadTimer); loadTimer=setInterval(()=>{ if(!document.hidden) muat(); },30000); }
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden&&token) muat(); });
+$('loginForm').addEventListener('submit',async ev=>{ ev.preventDefault(); $('lErr').hidden=true; $('lBtn').disabled=true; $('lBtn').textContent='Menyemak…';
+  try{ const j=await api('login',{no:$('lNo').value,pw:$('lPw').value}); token=j.token; try{ localStorage.setItem('petaToken',token); }catch(e){}
+    $('lPw').value=''; mula(j.user); }
+  catch(e){ const le=$('lErr'); le.hidden=false; le.textContent=e.message||'Log masuk gagal.'; }
+  finally{ $('lBtn').disabled=false; $('lBtn').textContent='Log masuk'; } });
+$('btnLogout').onclick=async()=>{ try{ await api('logout'); }catch(e){} showLogin(''); };
+
+(async()=>{
+  applyAccess();
+  if(!token){ showLogin(''); return; }
+  $('list').innerHTML='<div class="empty">Menyemak sesi…</div>';
+  try{ const j=await api('sesi'); mula(j.user); }
+  catch(e){ if(e.code!=='sesi') showLogin(e.message); }
+})();
+})();
+</script>
+</body>
+</html>
