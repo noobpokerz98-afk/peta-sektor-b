@@ -327,7 +327,7 @@ h2{font-family:var(--display);font-size:13px;letter-spacing:.08em;text-transform
       <!-- KAWASAN (perhatian / larangan) -->
       <section class="pane" id="panePetak" hidden>
         <h2>Tanda kawasan</h2>
-        <p class="hint">Untuk kawasan yang perlu diberi perhatian atau kawasan larangan. Pilih jenis, kemudian ketik petak 1 km di peta. Ketik petak yang sama sekali lagi untuk buang tanda.</p>
+        <p class="hint">Untuk kawasan yang perlu diberi perhatian atau kawasan larangan. Pilih jenis, kemudian ketik petak 1 km di peta. Ketik petak yang dah ditanda untuk padam atau tukar jenisnya.</p>
         <div class="status-grid" id="statusGrid">
           <button data-st="perhatian" aria-pressed="true"><i class="sw" style="background:var(--st-perhatian)"></i>Perhatian</button>
           <button data-st="larangan" aria-pressed="false"><i class="sw" style="background:var(--st-larangan)"></i>Kawasan larangan</button>
@@ -338,7 +338,10 @@ h2{font-family:var(--display);font-size:13px;letter-spacing:.08em;text-transform
         <div class="counts" id="counts" style="grid-template-columns:1fr 1fr">
           <div><b id="cPerhatian">0</b>Perhatian</div><div><b id="cLarangan">0</b>Larangan</div>
         </div>
-        <div id="petakInfo" class="readout" hidden></div>
+        <div id="petakInfo" class="detail" hidden></div>
+        <h2>Senarai kawasan ditanda</h2>
+        <div class="list" id="kwList"><div class="empty">Belum ada kawasan ditanda.</div></div>
+        <div class="actions"><button class="btn ghost" id="kwPadamSemua" type="button" hidden>Padam semua tanda kawasan</button></div>
         <p class="err" id="petakErr" hidden></p>
       </section>
 
@@ -625,24 +628,55 @@ function writeFail(e,id){ if(e&&e.code==='sesi') return msg(id,'Sesi tamat. Sila
 let cellBusy=false;
 async function toggleCell(E,N){ const ix=Math.floor(E), iy=Math.floor(N), id='c'+ix+'_'+iy;
   $('petakErr').hidden=true; showTab('Petak');
-  const cur=cells[id];
-  $('petakInfo').hidden=false;
-  const hist=cellHistory(id), dn=hist.find(isDone), pl=hist.filter(r=>!isDone(r)).pop();
-  $('petakInfo').innerHTML='<span>Petak <b>'+cellRef(ix,iy)+'</b></span><span>'+(cur?ST[cur.status]:'Tiada tanda')+'</span>'+
-    '<span style="flex-basis:100%">'+(dn?'Ronda terakhir '+fmtTarikh(dn.tarikh):'Belum dironda')+(pl?' · dirancang '+fmtTarikh(pl.tarikh):'')+'</span>';
+  const cur=cells[id]&&ST[cells[id].status]?cells[id]:null;
+  if(cur){ infoKawasan(id); return; }                 // marked cell: show info with Padam / Tukar, never toggle silently
   if(!db) return msg('petakErr','Simpanan dikongsi tidak tersedia di paparan ini.');
   if(canWrite===false) return msg('petakErr','Anda hanya boleh melihat petak.');
   if(cellBusy) return; cellBusy=true;
-  try{ const ref=db.collection('petak').doc(id);
-    if(cur && cur.status===status) await ref.delete();
-    else await ref.set({ix,iy,status,catatan:$('pCat').value.trim(),petakRef:cellRef(ix,iy),lembar:sheetName(ix+.5,iy+.5)}); }
+  try{ await db.collection('petak').doc(id).set({ix,iy,status,catatan:$('pCat').value.trim(),petakRef:cellRef(ix,iy),lembar:sheetName(ix+.5,iy+.5)}); $('petakInfo').hidden=true; }
   catch(e){ writeFail(e,'petakErr'); }
   finally{ cellBusy=false; } }
+function infoKawasan(id){ const v=cells[id]; if(!v) return; const el=$('petakInfo'), w=db&&canWrite!==false, lain=v.status==='perhatian'?'larangan':'perhatian';
+  const hist=cellHistory(id), dn=hist.find(isDone), pl=hist.filter(r=>!isDone(r)).pop();
+  el.hidden=false;
+  el.innerHTML='<h2><i class="sw" style="display:inline-block;vertical-align:-2px;background:'+SCOL(v.status)+'"></i> '+esc(ST[v.status])+'</h2>'+
+    '<div style="font:600 16px var(--mono)">Petak '+esc(cellRef(v.ix,v.iy))+'</div>'+
+    (v.catatan?'<p class="hint" style="color:var(--ink)">'+esc(v.catatan)+'</p>':'')+
+    '<div class="hint">'+(v.oleh?'Ditanda oleh '+esc(v.oleh)+(v.masa?' · '+esc(String(v.masa).slice(0,10)):''):'')+'</div>'+
+    '<div class="hint">'+(dn?'Ronda terakhir '+esc(fmtTarikh(dn.tarikh)):'Belum dironda')+(pl?' · dirancang '+esc(fmtTarikh(pl.tarikh)):'')+'</div>'+
+    '<div class="actions">'+(w?'<button class="btn ghost" id="kwPadam" type="button">Padam tanda</button><button class="btn ghost" id="kwTukar" type="button">Tukar ke '+esc(ST[lain])+'</button>':'')+
+    '<button class="btn ghost" id="kwTutup" type="button">Tutup</button></div>';
+  ronSelLayer.clearLayers(); ronSelLayer.addLayer(L.rectangle([[v.iy,v.ix],[v.iy+1,v.ix+1]],{color:'#1c63d6',weight:3,fill:false,interactive:false}));
+  $('kwTutup').onclick=()=>{ el.hidden=true; ronSelLayer.clearLayers(); };
+  const pd=$('kwPadam'); if(pd) pd.onclick=async()=>{ if(pd.dataset.ok!=='1'){ pd.dataset.ok='1'; pd.className='btn danger'; pd.textContent='Ketik lagi untuk padam'; return; }
+    pd.disabled=true; try{ await db.collection('petak').doc(id).delete(); el.hidden=true; ronSelLayer.clearLayers(); } catch(e){ writeFail(e,'petakErr'); pd.disabled=false; } };
+  const tk=$('kwTukar'); if(tk) tk.onclick=async()=>{ tk.disabled=true;
+    try{ await db.collection('petak').doc(id).set(Object.assign({},v,{status:lain,id:undefined})); el.hidden=true; ronSelLayer.clearLayers(); } catch(e){ writeFail(e,'petakErr'); tk.disabled=false; } };
+  el.scrollIntoView({block:'nearest'}); }
+function renderKawasan(){ const el=$('kwList'), w=db&&canWrite!==false;
+  const L2=Object.entries(cells).filter(([id,v])=>ST[v.status]).sort((a,b)=>a[1].status.localeCompare(b[1].status)||a[0].localeCompare(b[0]));
+  $('kwPadamSemua').hidden=!(w&&L2.length);
+  if(!L2.length){ el.innerHTML='<div class="empty">Belum ada kawasan ditanda.</div>'; return; }
+  el.innerHTML=L2.map(([id,v])=>'<div class="item" data-id="'+esc(id)+'" tabindex="0"><i class="dot" style="background:'+SCOL(v.status)+';border-radius:3px"></i>'+
+    '<div style="min-width:0"><div class="t">'+esc(ST[v.status])+' · '+esc(cellRef(v.ix,v.iy))+'</div><div class="m">'+esc(v.catatan||sheetName(v.ix+.5,v.iy+.5))+'</div></div>'+
+    (w?'<button class="btn ghost" type="button" data-kdel="'+esc(id)+'" style="padding:6px 10px">Padam</button>':'<span></span>')+'</div>').join('');
+  el.querySelectorAll('.item').forEach(it=>{ const go=()=>{ const v=cells[it.dataset.id]; if(!v) return; map.flyTo([v.iy+.5,v.ix+.5],Math.max(map.getZoom(),7),{duration:.6}); infoKawasan(it.dataset.id); };
+    it.onclick=go; it.onkeydown=e=>{ if(e.key==='Enter') go(); }; });
+  el.querySelectorAll('[data-kdel]').forEach(b=>b.onclick=async ev=>{ ev.stopPropagation();
+    if(b.dataset.ok!=='1'){ b.dataset.ok='1'; b.className='btn danger'; b.textContent='Pasti padam?'; return; }
+    b.disabled=true; try{ await db.collection('petak').doc(b.dataset.kdel).delete(); } catch(e){ writeFail(e,'petakErr'); b.disabled=false; } }); }
+let kwSemuaN=0;
+$('kwPadamSemua').onclick=async()=>{ const bt=$('kwPadamSemua'), ids=Object.keys(cells).filter(id=>ST[cells[id].status]);
+  if(kwSemuaN!==ids.length){ kwSemuaN=ids.length; bt.className='btn danger'; bt.textContent='Ketik lagi untuk padam '+ids.length+' tanda kawasan'; return; }
+  bt.disabled=true; let n=0;
+  try{ for(const id of ids){ await api('padam',{col:'petak',id}); n++; bt.textContent='Memadam… '+n+'/'+ids.length; } }
+  catch(e){ msg('petakErr','Berhenti selepas '+n+': '+(e.message||e)); }
+  finally{ bt.disabled=false; kwSemuaN=0; bt.className='btn ghost'; bt.textContent='Padam semua tanda kawasan'; muat(); } };
 function drawCells(){ cellLayer.clearLayers(); const c={perhatian:0,larangan:0};
   Object.entries(cells).forEach(([id,v])=>{ if(!ST[v.status]) return; c[v.status]++;
     const r=L.rectangle([[v.iy,v.ix],[v.iy+1,v.ix+1]],{color:SCOL(v.status),weight:1.5,fillColor:SCOL(v.status),fillOpacity:.38,interactive:false});
     cellLayer.addLayer(r); });
-  $('cPerhatian').textContent=c.perhatian; $('cLarangan').textContent=c.larangan; }
+  $('cPerhatian').textContent=c.perhatian; $('cLarangan').textContent=c.larangan; renderKawasan(); }
 
 /* ---- marks ---- */
 function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
