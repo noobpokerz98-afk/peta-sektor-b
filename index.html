@@ -1012,14 +1012,36 @@ async function rajah(list,pos){
   if(w/hh<want){ const add=hh*want-w; e0-=add*0.35; e1+=add*0.65; } else { const add=w/want-hh; n0-=add/2; n1+=add/2; }
   e0=Math.floor(e0); n1=Math.ceil(n1); w=Math.ceil(e1-e0); hh=Math.ceil(n1-n0); e1=e0+w; n0=n1-hh;
   const z=w>26?6:7, s=2**z, T=2048;
-  const cw=Math.round(w*s), ch=Math.round(hh*s);
-  const cv=document.createElement('canvas'); cv.width=cw; cv.height=ch; const g=cv.getContext('2d');
+  let cw=Math.round(w*s), ch=Math.round(hh*s);
+  let cv=document.createElement('canvas'); cv.width=cw; cv.height=ch; let g=cv.getContext('2d');
   g.fillStyle='#fff'; g.fillRect(0,0,cw,ch);
   const X=E=>(E-e0)*s, Y=N=>(n1-N)*s;
   const tx0=Math.floor(e0*s/T), tx1=Math.floor((e1*s-1)/T), ty0=Math.floor(-n1*s/T), ty1=Math.floor((-n0*s-1)/T), jobs=[]; let got=0;
   for(let tx=tx0;tx<=tx1;tx++) for(let ty=ty0;ty<=ty1;ty++) jobs.push(loadImg('tilesp/'+z+'/'+tx+'/'+ty+'.jpg').then(im=>{ if(im){ g.drawImage(im,tx*T-e0*s,ty*T+n1*s); got++; } }));
   await Promise.all(jobs);
   if(!got) throw new Error('Peta cetakan (folder tilesp) belum dimuat naik ke GitHub.');
+  // Crop away edge strips (whole km) that carry almost no map detail, e.g. blank Indonesian side, but never past the cells or the pos label
+  { const px=g.getImageData(0,0,cw,ch).data;
+    const ink=(x0,y0,x1,y1)=>{ let n=0,t=0; for(let y=y0;y<y1;y+=3) for(let x=x0;x<x1;x+=3){ const i=(y*cw+x)*4, r=px[i], gg=px[i+1], b=px[i+2]; t++;
+        if((r+gg+b)/3<228 && !(b>r+50 && b>190)) n++; } return t?n/t:0; };
+    const col=E=>ink(Math.round(X(E)),0,Math.round(X(E+1)),ch), row=N=>ink(0,Math.round(Y(N+1)),cw,Math.round(Y(N)));
+    let kE0=Math.min(...cs.map(c=>c[0]))-1, kE1=Math.max(...cs.map(c=>c[0]))+2, kN0=Math.min(...cs.map(c=>c[1]))-1, kN1=Math.max(...cs.map(c=>c[1]))+2;
+    if(pm){ kE0=Math.min(kE0,Math.floor(pm.E)-1); kE1=Math.max(kE1,Math.ceil(pm.E)+3); kN0=Math.min(kN0,Math.floor(pm.N)-1); kN1=Math.max(kN1,Math.ceil(pm.N)+1); }
+    const TH=0.06, o={e0,e1,n0,n1};
+    let ne0=e0, ne1=e1, nn0=n0, nn1=n1;
+    while(ne1-1>=kE1 && col(ne1-1)<TH) ne1--;
+    while(ne0+1<=kE0 && col(ne0)<TH) ne0++;
+    while(nn1-1>=kN1 && row(nn1-1)<TH) nn1--;
+    while(nn0+1<=kN0 && row(nn0)<TH) nn0++;
+    if(ne0!==e0||ne1!==e1||nn0!==n0||nn1!==n1){
+      const nc=document.createElement('canvas'); nc.width=Math.round((ne1-ne0)*s); nc.height=Math.round((nn1-nn0)*s);
+      nc.getContext('2d').drawImage(cv,-(ne0-o.e0)*s,-(o.n1-nn1)*s);
+      cv=nc; g=nc.getContext('2d'); cw=nc.width; ch=nc.height; e0=ne0; e1=ne1; n0=nn0; n1=nn1; } }
+  // 1 km grid in the map's own blue across the whole frame, so areas with no map detail never print as blank white
+  g.save(); g.strokeStyle='#5ab9e8'; g.lineWidth=Math.max(1,s/110); g.globalAlpha=.9; g.beginPath();
+  for(let E=Math.ceil(e0);E<=e1;E++){ g.moveTo(X(E)+.5,0); g.lineTo(X(E)+.5,ch); }
+  for(let N=Math.ceil(n0);N<=n1;N++){ g.moveTo(0,Y(N)+.5); g.lineTo(cw,Y(N)+.5); }
+  g.stroke(); g.restore();
   // cells: one colour per plan type, outlined, date top-left and PP number below
   const per={}; list.forEach(r=>(r.petak||[]).forEach(id=>{ if(!per[id]||r.tarikh>per[id].tarikh) per[id]=r; }));
   const fs=Math.max(12,Math.round(s*0.15));
@@ -1041,8 +1063,15 @@ async function rajah(list,pos){
   const R=Math.max(16,s*0.27);
   const bub=(x,y,t)=>{ g.beginPath(); g.arc(x,y,R,0,7); g.fillStyle='#fff200'; g.fill(); g.lineWidth=Math.max(1.5,s/90); g.strokeStyle='#000'; g.stroke();
     g.fillStyle='#000'; g.font='bold '+Math.round(R*0.95)+'px Arial, sans-serif'; g.textAlign='center'; g.textBaseline='middle'; g.fillText(t,x,y+1); g.textAlign='left'; };
-  for(let N=Math.ceil(n0+0.6);N<=n1-0.6;N++){ if(((N%5)+5)%5) continue; bub(R+12,Y(N),String(N>=0?N:N+100).padStart(2,'0')); }
-  for(let E=Math.ceil(e0+0.6);E<=e1-0.6;E++){ if(E%5) continue; bub(X(E),ch-R-12,String((E>=100?E-100:E)).padStart(2,'0')); }
+  // every 5 km line, and always at least two per edge (extra lines picked near 1/3 and 2/3 of the edge)
+  const pick=(lo,hi)=>{ const inn=[]; for(let v=Math.ceil(lo+0.8);v<=Math.floor(hi-0.8);v++) inn.push(v);
+    const out=inn.filter(v=>((v%5)+5)%5===0);
+    [1/3,2/3,1/2,1/4,3/4].forEach(f=>{ if(out.length>=2) return; const t=lo+(hi-lo)*f;
+      const c=inn.slice().sort((a,b)=>Math.abs(a-t)-Math.abs(b-t)).find(v=>out.every(o=>Math.abs(o-v)>=2)); if(c!=null) out.push(c); });
+    return out.sort((a,b)=>a-b); };
+  pick(n0,n1).forEach(N=>bub(R+12,Y(N),String(N>=0?N:N+100).padStart(2,'0')));
+  // bottom edge: a tag on every 2 km grid line (even eastings)
+  for(let E=Math.ceil(e0+0.8);E<=Math.floor(e1-0.8);E++){ if(E%2) continue; bub(X(E),ch-R-12,String((E>=100?E-100:E)).padStart(2,'0')); }
   g.lineWidth=2; g.strokeStyle='#000'; g.strokeRect(1,1,cw-2,ch-2);
   return {url:cv.toDataURL('image/jpeg',0.92),w:cw,h:ch}; }
 async function binaPelan(){
@@ -1103,7 +1132,7 @@ function docxXml(pl){
   const NS='xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"';
   const T=(t)=>wRun(t,{b:1,u:1,sz:28});
   const body=wPara(T('RANCANGAN RONDA '+pl.pos),{})+wPara(T('BULAN '+pl.bulan),{after:200})+tbl+
-    wPara(T('GAMBAR RAJAH RANCANGAN RONDA'),{before:360,keep:1})+wPara(T(pl.pos+' '+pl.yA),{after:160,keep:1})+(pl.img?wImage(pl.img.w,pl.img.h):'')+wPara('',{after:120})+leg+wPara('',{});
+    wPara(T('GAMBAR RAJAH RANCANGAN RONDA'),{before:360,keep:1})+wPara(T(pl.pos+' BULAN '+pl.bulan),{after:160,keep:1})+(pl.img?wImage(pl.img.w,pl.img.h):'')+wPara('',{after:120})+leg+wPara('',{});
   const hasK=!!pl.kelas;
   const sect='<w:sectPr>'+(hasK?'<w:headerReference w:type="default" r:id="rIdH"/><w:footerReference w:type="default" r:id="rIdF"/>':'')+'<w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134" w:header="567" w:footer="567" w:gutter="0"/></w:sectPr>';
   const doc='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document '+NS+'><w:body>'+body+sect+'</w:body></w:document>';
@@ -1140,7 +1169,7 @@ $('cJana').onclick=async()=>{ $('cErr').hidden=true; const bt=$('cJana'); bt.dis
       '<p class="rr-title">RANCANGAN RONDA '+P+'<br>BULAN '+esc(pl.bulan)+'</p>'+
       '<table class="rr-tbl"><thead><tr><th>Bil</th><th>Minggu</th><th>Tarikh</th><th>Petak Peta</th><th>Seksyen</th><th>Catatan</th></tr>'+
       '<tr><th>(a)</th><th>(b)</th><th>(c)</th><th>(d)</th><th>(e)</th><th>(f)</th></tr></thead><tbody>'+rows+'</tbody></table>'+
-      '<div class="rr-fig"><p class="rr-title" style="margin-top:2mm">GAMBAR RAJAH RANCANGAN RONDA<br>'+P+' '+pl.yA+'</p>'+
+      '<div class="rr-fig"><p class="rr-title" style="margin-top:2mm">GAMBAR RAJAH RANCANGAN RONDA<br>'+P+' BULAN '+esc(pl.bulan)+'</p>'+
       (pl.img?'<img class="rr-map" src="'+pl.img.url+'" alt="Gambar rajah rancangan ronda">':'')+
       '<div class="rr-leg"><b>PETUNJUK:</b>'+pl.used.map(k=>'<span><i style="background:'+PCOL[k]+'"></i>'+legNama(k)+'</span>').join('')+'</div></div>'+
       (K?'<div class="rr-kelas">'+K+'</div>':'')+'</div>';
