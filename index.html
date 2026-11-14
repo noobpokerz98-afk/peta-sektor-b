@@ -117,6 +117,9 @@ h2{font-family:var(--display);font-size:13px;letter-spacing:.08em;text-transform
 .tbl th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
 .gmap{color:var(--accent);font-weight:600;text-decoration:none;white-space:nowrap}
 .gmap:hover{text-decoration:underline}
+.selbar{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:8px 10px}
+.item .ck{width:18px;height:18px;margin:0;accent-color:var(--accent)}
+.item.sel{background:color-mix(in srgb,var(--accent) 12%,var(--field))}
 .tbl td.n{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
 /* phone */
 @media (max-width:820px){
@@ -447,6 +450,17 @@ h2{font-family:var(--display);font-size:13px;letter-spacing:.08em;text-transform
         <div id="ronDetail" hidden></div>
         <h2>Senarai rondaan</h2>
         <p class="hint" style="margin-top:-8px">Ketik petak di peta untuk lihat sejarah rondaan petak tu.</p>
+        <div class="actions" id="rSelTools">
+          <button class="btn ghost" id="rPilih" type="button">Pilih banyak</button>
+        </div>
+        <div class="selbar" id="rSelBar" hidden>
+          <label class="chk"><input type="checkbox" id="rPilihSemua"> Pilih semua</label>
+          <span class="hint" id="rSelN">0 dipilih</span>
+          <span class="grow"></span>
+          <button class="btn ghost" id="rSelBatal" type="button">Batal</button>
+          <button class="btn danger" id="rSelPadam" type="button" disabled>Padam dipilih</button>
+        </div>
+        <p class="err" id="rSelErr" hidden></p>
         <div class="list" id="ronList"><div class="empty">Memuatkan rondaan…</div></div>
         <div class="actions"><button class="btn ghost" id="rCsv" type="button">Muat turun CSV rondaan</button>
           <button class="btn ghost" id="rCetakBuka" type="button">Cetak rancangan ronda</button></div>
@@ -842,10 +856,28 @@ function renderRons(){ const list=ronFiltered().slice().sort((a,b)=>{ const da=i
   if(!rons.length){ el.innerHTML='<div class="empty">Belum ada rondaan. Tekan "+ Set rondaan" untuk mula.</div>'; return; }
   if(!list.length){ el.innerHTML='<div class="empty">Tiada rondaan dalam tapisan ini.</div>'; return; }
   el.innerHTML=list.map(r=>{ const pn=(r.penemuan||[]).filter(f=>f.jenis!=='Tiada penemuan').length;
-    return '<div class="item" data-id="'+esc(r.id)+'" tabindex="0"><i class="dot" style="background:'+statusCol(r)+'"></i>'+
+    return '<div class="item'+(selMode&&selIds.has(r.id)?' sel':'')+'" data-id="'+esc(r.id)+'" tabindex="0">'+(selMode?'<input type="checkbox" class="ck" tabindex="-1" aria-label="Pilih"'+(selIds.has(r.id)?' checked':'')+'>':'<i class="dot" style="background:'+statusCol(r)+'"></i>')+
     '<div style="min-width:0"><div class="t">'+jChip(r)+' '+esc(r.pos)+' · '+esc(r.sektor||'')+'</div><div class="m">'+esc(fmtTarikh(r.tarikh))+' · '+esc(statusText(r))+'</div></div>'+
     '<span class="gr">'+(r.jarakKm||0).toFixed(1)+' km'+(pn?' · '+pn+' ⚑':'')+'</span></div>'; }).join('');
-  el.querySelectorAll('.item').forEach(it=>{ const go=()=>selectRon(it.dataset.id); it.onclick=go; it.onkeydown=e=>{ if(e.key==='Enter') go(); }; }); }
+  el.querySelectorAll('.item').forEach(it=>{ const go=()=>{ if(selMode){ const id=it.dataset.id; selIds.has(id)?selIds.delete(id):selIds.add(id); renderRons(); } else selectRon(it.dataset.id); };
+    it.onclick=go; it.onkeydown=e=>{ if(e.key==='Enter'||(selMode&&e.key===' ')){ e.preventDefault(); go(); } }; });
+  syncSel(list); }
+let selMode=false, selIds=new Set(), selPadamOk=false;
+function syncSel(list){ list=list||ronFiltered(); const vis=new Set(list.map(r=>r.id));
+  [...selIds].forEach(id=>{ if(!rons.some(r=>r.id===id)) selIds.delete(id); });
+  const n=selIds.size, allVis=list.length>0&&list.every(r=>selIds.has(r.id));
+  $('rSelN').textContent=n+' dipilih'; $('rPilihSemua').checked=allVis; $('rPilihSemua').indeterminate=!allVis&&list.some(r=>selIds.has(r.id));
+  $('rSelPadam').disabled=!n; if(!selPadamOk) $('rSelPadam').textContent='Padam dipilih'+(n?' ('+n+')':''); }
+function setSelMode(on){ selMode=on; selIds=new Set(); selPadamOk=false; $('rSelBar').hidden=!on; $('rSelTools').hidden=on; $('rSelErr').hidden=true; renderRons(); }
+$('rPilih').onclick=()=>{ if(formOpen) closeForm(); setSelMode(true); };
+$('rSelBatal').onclick=()=>setSelMode(false);
+$('rPilihSemua').onchange=()=>{ const list=ronFiltered(); if($('rPilihSemua').checked) list.forEach(r=>selIds.add(r.id)); else list.forEach(r=>selIds.delete(r.id)); selPadamOk=false; renderRons(); };
+$('rSelPadam').onclick=async()=>{ const bt=$('rSelPadam'), ids=[...selIds]; if(!ids.length) return;
+  if(!selPadamOk){ selPadamOk=true; bt.textContent='Ketik lagi untuk padam '+ids.length+' rondaan'; return; }
+  bt.disabled=true; $('rSelErr').hidden=true; let n=0;
+  try{ for(const id of ids){ await api('padam',{col:'rondaan',id}); n++; selIds.delete(id); bt.textContent='Memadam… '+n+'/'+ids.length; } }
+  catch(e){ msg('rSelErr','Berhenti selepas '+n+' rondaan: '+(e.message||e)); }
+  finally{ selPadamOk=false; if(n) msg('ronOk',n+' rondaan dipadam.'); if(!selIds.size) setSelMode(false); else syncSel(); muat(); } };
 $('rfSek').onchange=refreshRons; $('rfHari').onchange=refreshRons; $('rfJenis').onchange=refreshRons; $('rJenis').onchange=drawDraft;
 let ronDelConfirm=false;
 function selectRon(id){ if(formOpen) closeForm(); ronSel=id; const r=rons.find(x=>x.id===id); ronSelLayer.clearLayers(); const el=$('ronDetail');
