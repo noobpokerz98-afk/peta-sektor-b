@@ -557,8 +557,12 @@ function cellRef(ix,iy){ const em=ix-(ix>=100?100:0), nm=iy>=0?iy:iy+100; const 
 const map = L.map('map',{crs:L.CRS.Simple,minZoom:2,maxZoom:9,zoomSnap:0.5,attributionControl:false,boxZoom:false,
   maxBounds:[[-30,-20],[50,176]],maxBoundsViscosity:0.8,zoomControl:false});
 L.control.zoom({position:'topright'}).addTo(map);
-L.tileLayer('tiles/{z}/{x}/{y}.jpg',{tileSize:2048,minNativeZoom:3,maxNativeZoom:7,minZoom:2,maxZoom:9,noWrap:true,bounds:BOUNDS,
+const baseLayer=L.tileLayer('tiles/{z}/{x}/{y}.jpg',{tileSize:2048,minNativeZoom:3,maxNativeZoom:7,minZoom:2,maxZoom:9,noWrap:true,bounds:BOUNDS,
   errorTileUrl:'data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw=='}).addTo(map);
+// Retry tiles that failed (e.g. while GitHub Pages is redeploying) instead of leaving the map blank
+baseLayer.on('tileerror',e=>{ const t=e.tile, n=+(t.dataset.retry||0); if(n>=4) return; t.dataset.retry=n+1;
+  setTimeout(()=>{ t.src=baseLayer.getTileUrl(e.coords)+'?r='+Date.now(); },1500*(n+1)); });
+window.addEventListener('online',()=>baseLayer.redraw());
 map.fitBounds(BOUNDS);
 const zoomCls=()=>{ $('map').classList.toggle('zfar',map.getZoom()<5); $('map').classList.toggle('zvfar',map.getZoom()<3); };
 map.on('zoomend',zoomCls); zoomCls();
