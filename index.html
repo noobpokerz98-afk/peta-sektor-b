@@ -449,7 +449,7 @@ h2{font-family:var(--display);font-size:13px;letter-spacing:.08em;text-transform
         <p class="hint" id="rCsvMsg" hidden></p>
         <div class="detail" id="cetakPanel" hidden>
           <h2>Cetak rancangan ronda ikut pos</h2>
-          <p class="hint">Jana dokumen A4 (jadual + gambar rajah petak) untuk satu pos, kemudian cetak atau simpan sebagai PDF.</p>
+          <p class="hint">Jana dokumen Word A4 (jadual + gambar rajah petak) untuk satu pos. TERHAD diletak dalam header dan footer dokumen.</p>
           <label class="f">Pos<select id="cPos"></select></label>
           <div class="row2">
             <label class="f">Dari<input id="cDari" type="date"></label>
@@ -458,7 +458,8 @@ h2{font-family:var(--display);font-size:13px;letter-spacing:.08em;text-transform
           <label class="f">Kelasifikasi<select id="cKelas"><option>TERHAD</option><option>SULIT</option><option>RAHSIA</option><option value="">Tiada</option></select></label>
           <p class="err" id="cErr" hidden></p>
           <div class="actions">
-            <button class="btn" id="cJana" type="button">Jana &amp; cetak</button>
+            <button class="btn" id="cWord" type="button">Muat turun Word</button>
+            <button class="btn ghost" id="cJana" type="button">Cetak terus</button>
             <button class="btn ghost" id="cTutup" type="button">Tutup</button>
           </div>
         </div>
@@ -913,8 +914,8 @@ async function rajah(list,pos){
   const pm=marks.find(m=>m.kategori==='pos'&&m.nama===pos);
   let e0=Math.min(...cs.map(c=>c[0])), e1=Math.max(...cs.map(c=>c[0]))+1, n0=Math.min(...cs.map(c=>c[1])), n1=Math.max(...cs.map(c=>c[1]))+1;
   if(pm){ e0=Math.min(e0,Math.floor(pm.E)); e1=Math.max(e1,Math.ceil(pm.E)+3); n0=Math.min(n0,Math.floor(pm.N)); n1=Math.max(n1,Math.ceil(pm.N)); }
-  e0-=2; e1+=3; n0-=1; n1+=1;
-  const want=1.75; let w=e1-e0, hh=n1-n0;                     // wide box like the paper plan
+  e0-=1; e1+=1; n0-=1; n1+=1;
+  const want=1.5; let w=e1-e0, hh=n1-n0;                     // wide box like the paper plan
   if(w/hh<want){ const add=hh*want-w; e0-=add*0.35; e1+=add*0.65; } else { const add=w/want-hh; n0-=add/2; n1+=add/2; }
   e0=Math.floor(e0); n1=Math.ceil(n1); w=Math.ceil(e1-e0); hh=Math.ceil(n1-n0); e1=e0+w; n0=n1-hh;
   const z=w>26?6:7, s=2**z, T=2048;
@@ -922,9 +923,10 @@ async function rajah(list,pos){
   const cv=document.createElement('canvas'); cv.width=cw; cv.height=ch; const g=cv.getContext('2d');
   g.fillStyle='#fff'; g.fillRect(0,0,cw,ch);
   const X=E=>(E-e0)*s, Y=N=>(n1-N)*s;
-  const tx0=Math.floor(e0*s/T), tx1=Math.floor((e1*s-1)/T), ty0=Math.floor(-n1*s/T), ty1=Math.floor((-n0*s-1)/T), jobs=[];
-  for(let tx=tx0;tx<=tx1;tx++) for(let ty=ty0;ty<=ty1;ty++) jobs.push(loadImg('tilesp/'+z+'/'+tx+'/'+ty+'.jpg').then(im=>im||loadImg('tiles/'+z+'/'+tx+'/'+ty+'.jpg')).then(im=>{ if(im) g.drawImage(im,tx*T-e0*s,ty*T+n1*s); }));
+  const tx0=Math.floor(e0*s/T), tx1=Math.floor((e1*s-1)/T), ty0=Math.floor(-n1*s/T), ty1=Math.floor((-n0*s-1)/T), jobs=[]; let got=0;
+  for(let tx=tx0;tx<=tx1;tx++) for(let ty=ty0;ty<=ty1;ty++) jobs.push(loadImg('tilesp/'+z+'/'+tx+'/'+ty+'.jpg').then(im=>{ if(im){ g.drawImage(im,tx*T-e0*s,ty*T+n1*s); got++; } }));
   await Promise.all(jobs);
+  if(!got) throw new Error('Peta cetakan (folder tilesp) belum dimuat naik ke GitHub.');
   // cells: one colour per plan type, outlined, date top-left and PP number below
   const per={}; list.forEach(r=>(r.petak||[]).forEach(id=>{ if(!per[id]||r.tarikh>per[id].tarikh) per[id]=r; }));
   const fs=Math.max(12,Math.round(s*0.15));
@@ -949,39 +951,110 @@ async function rajah(list,pos){
   for(let N=Math.ceil(n0+0.6);N<=n1-0.6;N++){ if(((N%5)+5)%5) continue; bub(R+12,Y(N),String(N>=0?N:N+100).padStart(2,'0')); }
   for(let E=Math.ceil(e0+0.6);E<=e1-0.6;E++){ if(E%5) continue; bub(X(E),ch-R-12,String((E>=100?E-100:E)).padStart(2,'0')); }
   g.lineWidth=2; g.strokeStyle='#000'; g.strokeRect(1,1,cw-2,ch-2);
-  return cv.toDataURL('image/jpeg',0.92); }
-$('cJana').onclick=async()=>{ $('cErr').hidden=true; const pos=$('cPos').value, a=$('cDari').value, b=$('cHingga').value;
-  if(!pos) return msg('cErr','Tiada rondaan untuk dicetak. Set rondaan dahulu.');
-  if(!a||!b||a>b) return msg('cErr','Pilih julat tarikh yang betul.');
+  return {url:cv.toDataURL('image/jpeg',0.92),w:cw,h:ch}; }
+async function binaPelan(){
+  const pos=$('cPos').value, a=$('cDari').value, b=$('cHingga').value;
+  if(!pos) throw new Error('Tiada rondaan untuk dijana. Set rondaan dahulu.');
+  if(!a||!b||a>b) throw new Error('Pilih julat tarikh yang betul.');
   const list=rons.filter(r=>r.pos===pos&&r.tarikh>=a&&r.tarikh<=b).sort((x,y)=>x.tarikh.localeCompare(y.tarikh)||String(x.keluar||'').localeCompare(String(y.keluar||'')));
-  if(!list.length) return msg('cErr','Tiada rondaan '+pos+' antara '+tkhPendek(a)+' dan '+tkhPendek(b)+'.');
-  $('cJana').disabled=true; $('cJana').textContent='Menjana…';
-  try{
-    const weeks=[...new Set(list.map(r=>isoMon(r.tarikh)))]; const wk=r=>weeks.indexOf(isoMon(r.tarikh))+1;
-    let rows='', bil=0;
-    weeks.forEach((wm,wi)=>{ const grp=list.filter(r=>isoMon(r.tarikh)===wm);
-      if(wi>0) rows+='<tr class="sep"><td colspan="6"></td></tr>';
-      const span=(arr,key,i)=>{ if(i>0&&key(arr[i])===key(arr[i-1])) return 0; let n=1; while(i+n<arr.length&&key(arr[i+n])===key(arr[i])) n++; return n; };
-      grp.forEach((r,i)=>{ bil++; const sk=span(grp,x=>x.seksyen||'',i), jj=span(grp,x=>jk(x)||'',i);
+  if(!list.length) throw new Error('Tiada rondaan '+pos+' antara '+tkhPendek(a)+' dan '+tkhPendek(b)+'.');
+  const weeks=[...new Set(list.map(r=>isoMon(r.tarikh)))].map(wm=>list.filter(r=>isoMon(r.tarikh)===wm));
+  const yA=a.slice(0,4), mA=BULAN[+a.slice(5,7)-1], mB=BULAN[+b.slice(5,7)-1], yB=b.slice(0,4);
+  const bulan=(mA===mB&&yA===yB)?mA+' '+yA:(yA===yB?mA+' – '+mB+' '+yA:mA+' '+yA+' – '+mB+' '+yB);
+  const used=['RJD','RJJ','KEN'].filter(k=>list.some(r=>jk(r)===k));
+  return {pos:pos.toUpperCase(),bulan,yA,weeks,used:used.length?used:['RJD','RJJ'],kelas:$('cKelas').value,img:await rajah(list,pos)}; }
+const spanOf=(arr,key,i)=>{ if(i>0&&key(arr[i])===key(arr[i-1])) return 0; let n=1; while(i+n<arr.length&&key(arr[i+n])===key(arr[i])) n++; return n; };
+const legNama=k=>k==='KEN'?'BERKENDERAAN':k;
+
+/* ---- Word (.docx) built in the browser: WordprocessingML + a small stored ZIP writer ---- */
+const CRC=(()=>{ const t=new Uint32Array(256); for(let n=0;n<256;n++){ let c=n; for(let k=0;k<8;k++) c=c&1?0xEDB88320^(c>>>1):c>>>1; t[n]=c>>>0; } return t; })();
+function crc32(u){ let c=0xFFFFFFFF; for(let i=0;i<u.length;i++) c=CRC[(c^u[i])&255]^(c>>>8); return (c^0xFFFFFFFF)>>>0; }
+function zipStore(files){ const enc=new TextEncoder(), parts=[], cen=[]; let off=0;
+  files.forEach(f=>{ const name=enc.encode(f.name), data=typeof f.data==='string'?enc.encode(f.data):f.data, crc=crc32(data);
+    const lh=new DataView(new ArrayBuffer(30)); lh.setUint32(0,0x04034b50,true); lh.setUint16(4,20,true); lh.setUint16(8,0,true); lh.setUint16(12,33,true);
+    lh.setUint32(14,crc,true); lh.setUint32(18,data.length,true); lh.setUint32(22,data.length,true); lh.setUint16(26,name.length,true);
+    parts.push(new Uint8Array(lh.buffer),name,data);
+    const ch=new DataView(new ArrayBuffer(46)); ch.setUint32(0,0x02014b50,true); ch.setUint16(4,20,true); ch.setUint16(6,20,true); ch.setUint16(14,33,true);
+    ch.setUint32(16,crc,true); ch.setUint32(20,data.length,true); ch.setUint32(24,data.length,true); ch.setUint16(28,name.length,true); ch.setUint32(42,off,true);
+    cen.push(new Uint8Array(ch.buffer),name); off+=30+name.length+data.length; });
+  const csz=cen.reduce((s,x)=>s+x.length,0), end=new DataView(new ArrayBuffer(22));
+  end.setUint32(0,0x06054b50,true); end.setUint16(8,files.length,true); end.setUint16(10,files.length,true); end.setUint32(12,csz,true); end.setUint32(16,off,true);
+  return new Blob([...parts,...cen,new Uint8Array(end.buffer)],{type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'}); }
+const xe=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const FONT='<w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>';
+function wRun(t,o){ o=o||{}; return '<w:r><w:rPr>'+FONT+(o.b?'<w:b/>':'')+(o.u?'<w:u w:val="single"/>':'')+'<w:sz w:val="'+(o.sz||22)+'"/></w:rPr><w:t xml:space="preserve">'+xe(t)+'</w:t></w:r>'; }
+function wPara(runs,o){ o=o||{}; return '<w:p><w:pPr><w:spacing w:before="'+(o.before||0)+'" w:after="'+(o.after||0)+'" w:line="240" w:lineRule="auto"/><w:jc w:val="'+(o.jc||'center')+'"/>'+(o.keep?'<w:keepNext/>':'')+'</w:pPr>'+runs+'</w:p>'; }
+function wCell(text,w,o){ o=o||{}; return '<w:tc><w:tcPr><w:tcW w:w="'+w+'" w:type="dxa"/>'+(o.span?'<w:gridSpan w:val="'+o.span+'"/>':'')+(o.vm==='restart'?'<w:vMerge w:val="restart"/>':o.vm==='cont'?'<w:vMerge/>':'')+
+  (o.fill?'<w:shd w:val="clear" w:color="auto" w:fill="'+o.fill+'"/>':'')+'<w:vAlign w:val="center"/></w:tcPr>'+wPara(o.vm==='cont'?'':wRun(text,{b:o.b,sz:o.sz||22}),{jc:o.jc||'center'})+'</w:tc>'; }
+function wImage(w,hh){ const cx=Math.round(17*360000), cy=Math.round(cx*hh/w);
+  return '<w:p><w:pPr><w:spacing w:before="0" w:after="0"/><w:jc w:val="center"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="'+cx+'" cy="'+cy+'"/><wp:docPr id="1" name="Rajah"/>'+
+    '<a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">'+
+    '<pic:nvPicPr><pic:cNvPr id="1" name="rajah.jpeg"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="rIdImg"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>'+
+    '<pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="'+cx+'" cy="'+cy+'"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:ln w="12700"><a:solidFill><a:srgbClr val="000000"/></a:solidFill></a:ln></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>'; }
+function docxXml(pl){
+  const W=[800,1700,1700,1900,1700,1838], B='<w:tblBorders><w:top w:val="single" w:sz="6" w:color="000000"/><w:left w:val="single" w:sz="6" w:color="000000"/><w:bottom w:val="single" w:sz="6" w:color="000000"/><w:right w:val="single" w:sz="6" w:color="000000"/><w:insideH w:val="single" w:sz="6" w:color="000000"/><w:insideV w:val="single" w:sz="6" w:color="000000"/></w:tblBorders>';
+  let rows='<w:tr><w:trPr><w:tblHeader/></w:trPr>'+['Bil','Minggu','Tarikh','Petak Peta','Seksyen','Catatan'].map((t,i)=>wCell(t,W[i],{b:1,fill:'C8C8C8'})).join('')+'</w:tr>'+
+    '<w:tr><w:trPr><w:tblHeader/></w:trPr>'+['(a)','(b)','(c)','(d)','(e)','(f)'].map((t,i)=>wCell(t,W[i],{fill:'C8C8C8'})).join('')+'</w:tr>';
+  let bil=0;
+  pl.weeks.forEach((grp,wi)=>{ if(wi>0) rows+='<w:tr><w:trPr><w:trHeight w:val="160" w:hRule="exact"/></w:trPr>'+wCell('',W.reduce((a,b)=>a+b,0),{span:6,fill:'C8C8C8',sz:4})+'</w:tr>';
+    grp.forEach((r,i)=>{ bil++; const sk=spanOf(grp,x=>x.seksyen||'',i), jj=spanOf(grp,x=>jk(x)||'',i);
+      rows+='<w:tr><w:trPr><w:cantSplit/></w:trPr>'+wCell(bil+'.',W[0])+wCell('Minggu '+(wi+1),W[1],{vm:i===0?'restart':'cont'})+wCell(tkhPendek(r.tarikh),W[2])+
+        wCell((r.petak||[]).map(ppOf).join(', '),W[3])+wCell(r.seksyen||'',W[4],{vm:sk?'restart':'cont'})+wCell(jk(r)||'',W[5],{vm:jj?'restart':'cont'})+'</w:tr>'; }); });
+  const tbl='<w:tbl><w:tblPr><w:tblW w:w="'+W.reduce((a,b)=>a+b,0)+'" w:type="dxa"/><w:jc w:val="center"/>'+B+'<w:tblLayout w:type="fixed"/><w:tblCellMar><w:left w:w="80" w:type="dxa"/><w:right w:w="80" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid>'+W.map(x=>'<w:gridCol w:w="'+x+'"/>').join('')+'</w:tblGrid>'+rows+'</w:tbl>';
+  const LB='<w:tblBorders><w:top w:val="single" w:sz="8" w:color="000000"/><w:left w:val="single" w:sz="8" w:color="000000"/><w:bottom w:val="single" w:sz="8" w:color="000000"/><w:right w:val="single" w:sz="8" w:color="000000"/></w:tblBorders>';
+  const sw=k=>'<w:tc><w:tcPr><w:tcW w:w="300" w:type="dxa"/></w:tcPr>'+wPara('',{})+'</w:tc><w:tc><w:tcPr><w:tcW w:w="700" w:type="dxa"/><w:tcBorders><w:top w:val="single" w:sz="8" w:color="1F2A44"/><w:left w:val="single" w:sz="8" w:color="1F2A44"/><w:bottom w:val="single" w:sz="8" w:color="1F2A44"/><w:right w:val="single" w:sz="8" w:color="1F2A44"/></w:tcBorders><w:shd w:val="clear" w:color="auto" w:fill="'+PCOL[k].slice(1).toUpperCase()+'"/></w:tcPr>'+wPara('',{})+'</w:tc>'+
+    '<w:tc><w:tcPr><w:tcW w:w="2000" w:type="dxa"/><w:vAlign w:val="center"/></w:tcPr>'+wPara(wRun(legNama(k),{b:1}),{jc:'left'})+'</w:tc>';
+  const leg='<w:tbl><w:tblPr><w:tblW w:w="3000" w:type="dxa"/><w:jc w:val="right"/>'+LB+'<w:tblLayout w:type="fixed"/><w:tblCellMar><w:left w:w="100" w:type="dxa"/><w:right w:w="100" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid><w:gridCol w:w="300"/><w:gridCol w:w="700"/><w:gridCol w:w="2000"/></w:tblGrid>'+
+    '<w:tr><w:trPr><w:trHeight w:val="420"/></w:trPr><w:tc><w:tcPr><w:tcW w:w="3000" w:type="dxa"/><w:gridSpan w:val="3"/><w:vAlign w:val="center"/></w:tcPr>'+wPara(wRun('PETUNJUK:',{b:1}),{jc:'left',before:60})+'</w:tc></w:tr>'+
+    pl.used.map(k=>'<w:tr><w:trPr><w:trHeight w:val="440" w:hRule="exact"/></w:trPr>'+sw(k)+'</w:tr><w:tr><w:trPr><w:trHeight w:val="100" w:hRule="exact"/></w:trPr><w:tc><w:tcPr><w:tcW w:w="3000" w:type="dxa"/><w:gridSpan w:val="3"/></w:tcPr>'+wPara('',{})+'</w:tc></w:tr>').join('')+'</w:tbl>';
+  const NS='xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"';
+  const T=(t)=>wRun(t,{b:1,u:1,sz:28});
+  const body=wPara(T('RANCANGAN RONDA '+pl.pos),{})+wPara(T('BULAN '+pl.bulan),{after:200})+tbl+
+    wPara(T('GAMBAR RAJAH RANCANGAN RONDA'),{before:360,keep:1})+wPara(T(pl.pos+' '+pl.yA),{after:160,keep:1})+(pl.img?wImage(pl.img.w,pl.img.h):'')+wPara('',{after:120})+leg+wPara('',{});
+  const hasK=!!pl.kelas;
+  const sect='<w:sectPr>'+(hasK?'<w:headerReference w:type="default" r:id="rIdH"/><w:footerReference w:type="default" r:id="rIdF"/>':'')+'<w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134" w:header="567" w:footer="567" w:gutter="0"/></w:sectPr>';
+  const doc='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document '+NS+'><w:body>'+body+sect+'</w:body></w:document>';
+  const hf=tag=>'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:'+tag+' '+NS+'>'+wPara(wRun(pl.kelas,{sz:24}),{})+'</w:'+tag+'>';
+  return {doc,hdr:hf('hdr'),ftr:hf('ftr'),hasK}; }
+function dataUrlBytes(u){ const b=atob(u.split(',')[1]), a=new Uint8Array(b.length); for(let i=0;i<b.length;i++) a[i]=b.charCodeAt(i); return a; }
+function bukuDocx(pl){ const x=docxXml(pl);
+  const ct='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="jpeg" ContentType="image/jpeg"/>'+
+    '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>'+
+    (x.hasK?'<Override PartName="/word/header1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml"/><Override PartName="/word/footer1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml"/>':'')+'</Types>';
+  const rels='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>';
+  const drels='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+
+    (pl.img?'<Relationship Id="rIdImg" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/rajah.jpeg"/>':'')+
+    (x.hasK?'<Relationship Id="rIdH" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/header" Target="header1.xml"/><Relationship Id="rIdF" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" Target="footer1.xml"/>':'')+'</Relationships>';
+  const files=[{name:'[Content_Types].xml',data:ct},{name:'_rels/.rels',data:rels},{name:'word/document.xml',data:x.doc},{name:'word/_rels/document.xml.rels',data:drels}];
+  if(x.hasK) files.push({name:'word/header1.xml',data:x.hdr},{name:'word/footer1.xml',data:x.ftr});
+  if(pl.img) files.push({name:'word/media/rajah.jpeg',data:dataUrlBytes(pl.img.url)});
+  return zipStore(files); }
+$('cWord').onclick=async()=>{ $('cErr').hidden=true; const bt=$('cWord'); bt.disabled=true; bt.textContent='Menjana…';
+  try{ const pl=await binaPelan(), blob=bukuDocx(pl);
+    await dlApi.save({filename:'RANCANGAN RONDA '+pl.pos+' '+$('cDari').value+' hingga '+$('cHingga').value+'.docx',data:blob}); }
+  catch(e){ msg('cErr',e.message||String(e)); }
+  finally{ bt.disabled=false; bt.textContent='Muat turun Word'; } };
+
+$('cJana').onclick=async()=>{ $('cErr').hidden=true; const bt=$('cJana'); bt.disabled=true; bt.textContent='Menjana…';
+  try{ const pl=await binaPelan(); let rows='', bil=0;
+    pl.weeks.forEach((grp,wi)=>{ if(wi>0) rows+='<tr class="sep"><td colspan="6"></td></tr>';
+      grp.forEach((r,i)=>{ bil++; const sk=spanOf(grp,x=>x.seksyen||'',i), jj=spanOf(grp,x=>jk(x)||'',i);
         rows+='<tr><td>'+bil+'.</td>'+(i===0?'<td rowspan="'+grp.length+'">Minggu '+(wi+1)+'</td>':'')+
           '<td>'+esc(tkhPendek(r.tarikh))+'</td><td>'+esc((r.petak||[]).map(ppOf).join(', '))+'</td>'+
           (sk?'<td rowspan="'+sk+'">'+esc(r.seksyen||'')+'</td>':'')+(jj?'<td rowspan="'+jj+'">'+esc(jk(r)||'')+'</td>':'')+'</tr>'; }); });
-    const yA=a.slice(0,4), mA=BULAN[+a.slice(5,7)-1], mB=BULAN[+b.slice(5,7)-1], yB=b.slice(0,4);
-    const bulan=(mA===mB&&yA===yB)?mA+' '+yA:(yA===yB?mA+' – '+mB+' '+yA:mA+' '+yA+' – '+mB+' '+yB);
-    const img=await rajah(list,pos), P=esc(pos.toUpperCase()), K=esc($('cKelas').value);
-    const used=['RJD','RJJ','KEN'].filter(k=>list.some(r=>jk(r)===k));
+    const P=esc(pl.pos), K=esc(pl.kelas);
     $('printArea').innerHTML='<div class="rr-page">'+(K?'<div class="rr-kelas">'+K+'</div>':'')+
-      '<p class="rr-title">RANCANGAN RONDA '+P+'<br>BULAN '+bulan+'</p>'+
+      '<p class="rr-title">RANCANGAN RONDA '+P+'<br>BULAN '+esc(pl.bulan)+'</p>'+
       '<table class="rr-tbl"><thead><tr><th>Bil</th><th>Minggu</th><th>Tarikh</th><th>Petak Peta</th><th>Seksyen</th><th>Catatan</th></tr>'+
       '<tr><th>(a)</th><th>(b)</th><th>(c)</th><th>(d)</th><th>(e)</th><th>(f)</th></tr></thead><tbody>'+rows+'</tbody></table>'+
-      '<div class="rr-fig"><p class="rr-title" style="margin-top:2mm">GAMBAR RAJAH RANCANGAN RONDA<br>'+P+' '+yA+'</p>'+
-      (img?'<img class="rr-map" src="'+img+'" alt="Gambar rajah rancangan ronda">':'')+
-      '<div class="rr-leg"><b>PETUNJUK:</b>'+(used.length?used:['RJD','RJJ']).map(k=>'<span><i style="background:'+PCOL[k]+'"></i>'+(k==='KEN'?'BERKENDERAAN':k)+'</span>').join('')+'</div></div>'+
+      '<div class="rr-fig"><p class="rr-title" style="margin-top:2mm">GAMBAR RAJAH RANCANGAN RONDA<br>'+P+' '+pl.yA+'</p>'+
+      (pl.img?'<img class="rr-map" src="'+pl.img.url+'" alt="Gambar rajah rancangan ronda">':'')+
+      '<div class="rr-leg"><b>PETUNJUK:</b>'+pl.used.map(k=>'<span><i style="background:'+PCOL[k]+'"></i>'+legNama(k)+'</span>').join('')+'</div></div>'+
       (K?'<div class="rr-kelas">'+K+'</div>':'')+'</div>';
     const im=$('printArea').querySelector('img'); if(im&&!im.complete) await new Promise(ok=>{ im.onload=ok; im.onerror=ok; });
-    window.print();
-  }catch(e){ msg('cErr','Tak dapat jana dokumen: '+(e.message||e)); }
-  finally{ $('cJana').disabled=false; $('cJana').textContent='Jana & cetak'; } };
+    window.print(); }
+  catch(e){ msg('cErr',e.message||String(e)); }
+  finally{ bt.disabled=false; bt.textContent='Cetak terus'; } };
 
 /* ---- access banner ---- */
 function applyAccess(){ $('accessBanner').hidden=true; }
