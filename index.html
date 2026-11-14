@@ -437,6 +437,7 @@ h2{font-family:var(--display);font-size:13px;letter-spacing:.08em;text-transform
           <div class="actions">
             <button class="btn" id="rSimpan" type="button">Simpan rondaan</button>
             <button class="btn ghost" id="rBatal" type="button">Batal</button>
+            <button class="btn ghost" id="rPadam" type="button" hidden>Padam rondaan ini</button>
           </div>
         </div>
 
@@ -461,6 +462,9 @@ h2{font-family:var(--display);font-size:13px;letter-spacing:.08em;text-transform
             <button class="btn" id="cWord" type="button">Muat turun Word</button>
             <button class="btn ghost" id="cJana" type="button">Cetak terus</button>
             <button class="btn ghost" id="cTutup" type="button">Tutup</button>
+          </div>
+          <div class="actions" style="border-top:1px solid var(--line);padding-top:10px">
+            <button class="btn ghost" id="cPadamSemua" type="button">Padam semua rondaan pos ini dalam julat tarikh</button>
           </div>
         </div>
       </section>
@@ -722,10 +726,17 @@ function openForm(r){ editId=r?r.id:null; formOpen=true; $('ronErr').hidden=true
   route=r?(r.laluan||[]).map(p=>[p.E,p.N]):[]; finds=r?(r.penemuan||[]).map(f=>Object.assign({},f)):[];
   setClickFor(r&&isDone(r)?'penemuan':'laluan');
   renderFinds(); $('ronDetail').hidden=true; ronSel=null; ronSelLayer.clearLayers();
+  fPadamOk=false; $('rPadam').hidden=!editId; $('rPadam').className='btn ghost'; $('rPadam').textContent='Padam rondaan ini';
   $('ronForm').hidden=false; $('rBaru').hidden=true; drawDraft(); $('ronForm').scrollIntoView({block:'nearest'}); }
 function closeForm(){ formOpen=false; editId=null; route=[]; finds=[]; $('ronForm').hidden=true; $('rBaru').hidden=false;
   if(pickMarker){pickMarker.remove();pickMarker=null;} drawDraft(); }
 $('rBaru').onclick=()=>openForm(null); $('rBatal').onclick=closeForm;
+let fPadamOk=false;
+async function padamRondaan(r,errId){ await db.collection('rondaan').doc(r.id).delete();
+  msg('ronOk','Rondaan '+r.pos+' '+fmtTarikh(r.tarikh)+' dipadam.'); }
+$('rPadam').onclick=async()=>{ const r=rons.find(x=>x.id===editId); if(!r) return;
+  if(!fPadamOk){ fPadamOk=true; $('rPadam').className='btn danger'; $('rPadam').textContent='Ketik lagi untuk padam'; return; }
+  $('rPadam').disabled=true; try{ await padamRondaan(r); closeForm(); } catch(e){ writeFail(e,'ronErr'); } finally{ $('rPadam').disabled=false; } };
 
 function ronClick(E,N){
   if(!formOpen){ showRonDetailCell(Math.floor(E),Math.floor(N)); return; }
@@ -823,7 +834,7 @@ function selectRon(id){ if(formOpen) closeForm(); ronSel=id; const r=rons.find(x
   $('rdTutup').onclick=()=>{ ronSel=null; el.hidden=true; ronSelLayer.clearLayers(); };
   const ed=$('rdEdit'); if(ed) ed.onclick=()=>openForm(r);
   const pd=$('rdPadam'); if(pd) pd.onclick=async()=>{ if(!ronDelConfirm){ ronDelConfirm=true; pd.textContent='Ketik lagi untuk padam'; pd.className='btn danger'; return; }
-    try{ await db.collection('rondaan').doc(r.id).delete(); ronSel=null; el.hidden=true; ronSelLayer.clearLayers(); } catch(e){ writeFail(e,'rdErr'); } };
+    pd.disabled=true; try{ await padamRondaan(r); ronSel=null; ronDelConfirm=false; el.hidden=true; ronSelLayer.clearLayers(); } catch(e){ ronDelConfirm=false; writeFail(e,'rdErr'); } finally{ pd.disabled=false; } };
   el.scrollIntoView({block:'nearest'}); }
 function cellHistory(id){ return rons.filter(r=>(r.petak||[]).includes(id)).sort((a,b)=>b.tarikh.localeCompare(a.tarikh)); }
 function showRonDetailCell(ix,iy){ const el=$('ronDetail'); el.hidden=false; el.className='detail'; ronSelLayer.clearLayers(); ronSel=null;
@@ -832,9 +843,12 @@ function showRonDetailCell(ix,iy){ const el=$('ronDetail'); el.hidden=false; el.
   el.innerHTML='<h2>Sejarah petak</h2><div style="font:600 16px var(--mono)">'+cellRef(ix,iy)+'</div><div class="hint">'+esc(sheetName(ix+.5,iy+.5))+'</div>'+
     (hist.length?'<div class="list">'+hist.map(r=>'<div class="item" data-id="'+esc(r.id)+'" tabindex="0" style="grid-template-columns:12px 1fr auto"><i class="dot" style="background:'+statusCol(r)+'"></i>'+
       '<div style="min-width:0"><div class="t">'+jChip(r)+' '+esc(r.pos)+'</div><div class="m">'+esc(fmtTarikh(r.tarikh))+' · '+esc(statusText(r))+'</div></div>'+
-      (w?'<button class="btn ghost" type="button" data-edit="'+esc(r.id)+'" style="padding:6px 10px">Kemaskini</button>':'')+'</div>').join('')+'</div>'
+      (w?'<span style="display:flex;gap:6px"><button class="btn ghost" type="button" data-edit="'+esc(r.id)+'" style="padding:6px 10px">Kemaskini</button><button class="btn ghost" type="button" data-del="'+esc(r.id)+'" style="padding:6px 10px">Padam</button></span>':'')+'</div>').join('')+'</div>'
       :'<p class="hint">Petak ini belum pernah dironda atau dirancang.</p>')+
-    '<div class="actions"><button class="btn ghost" id="rdTutup" type="button">Tutup</button></div>';
+    '<div class="actions"><button class="btn ghost" id="rdTutup" type="button">Tutup</button></div><p class="err" id="rdErr" hidden></p>';
+  el.querySelectorAll('[data-del]').forEach(b=>b.onclick=async ev=>{ ev.stopPropagation(); const r=rons.find(x=>x.id===b.dataset.del); if(!r) return;
+    if(b.dataset.ok!=='1'){ b.dataset.ok='1'; b.className='btn danger'; b.textContent='Pasti padam?'; return; }
+    b.disabled=true; try{ await padamRondaan(r); b.closest('.item').remove(); } catch(e){ writeFail(e,'rdErr'); b.disabled=false; } });
   el.querySelectorAll('.item').forEach(it=>{ const go=()=>selectRon(it.dataset.id); it.onclick=go; it.onkeydown=e=>{ if(e.key==='Enter') go(); }; });
   el.querySelectorAll('[data-edit]').forEach(b=>b.onclick=ev=>{ ev.stopPropagation(); const r=rons.find(x=>x.id===b.dataset.edit); if(r) openForm(r); });
   $('rdTutup').onclick=()=>{ el.hidden=true; ronSelLayer.clearLayers(); };
@@ -904,7 +918,16 @@ $('rCetakBuka').onclick=()=>{ const ps=[...new Set(rons.map(r=>r.pos).filter(Boo
   const f=d=>d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());
   if(!$('cDari').value) $('cDari').value=f(a); if(!$('cHingga').value) $('cHingga').value=f(b);
   $('cErr').hidden=true; $('cetakPanel').hidden=false; $('cetakPanel').scrollIntoView({block:'nearest'}); };
-$('cTutup').onclick=()=>{ $('cetakPanel').hidden=true; };
+$('cTutup').onclick=()=>{ $('cetakPanel').hidden=true; cPadamN=0; $('cPadamSemua').className='btn ghost'; $('cPadamSemua').textContent='Padam semua rondaan pos ini dalam julat tarikh'; };
+let cPadamN=0;
+$('cPadamSemua').onclick=async()=>{ $('cErr').hidden=true; const bt=$('cPadamSemua'), pos=$('cPos').value, a=$('cDari').value, b=$('cHingga').value;
+  const list=rons.filter(r=>r.pos===pos&&r.tarikh>=a&&r.tarikh<=b);
+  if(!list.length) return msg('cErr','Tiada rondaan '+(pos||'')+' dalam julat tarikh ini.');
+  if(cPadamN!==list.length){ cPadamN=list.length; bt.className='btn danger'; bt.textContent='Ketik lagi untuk padam '+list.length+' rondaan '+pos; return; }
+  bt.disabled=true; let n=0;
+  try{ for(const r of list){ await api('padam',{col:'rondaan',id:r.id}); n++; bt.textContent='Memadam… '+n+'/'+list.length; } }
+  catch(e){ msg('cErr','Berhenti selepas '+n+' rondaan: '+(e.message||e)); }
+  finally{ bt.disabled=false; cPadamN=0; bt.className='btn ghost'; bt.textContent='Padam semua rondaan pos ini dalam julat tarikh'; muat(); if(n) msg('ronOk',n+' rondaan '+pos+' dipadam.'); } };
 function loadImg(src){ return new Promise(ok=>{ const im=new Image(); im.onload=()=>ok(im); im.onerror=()=>ok(null); im.src=src; }); }
 /* Print palette = the paper plan's pastel fills (light blue RJD, pink RJJ, light green KEN) */
 const PCOL={RJD:'#a9c8ea',RJJ:'#f6a6a6',KEN:'#b9dca2','':'#d0d0d0'};
@@ -1083,7 +1106,7 @@ async function muat(){ if(loading||!token) return; loading=true; $('syncTxt').te
     cells={}; (j.petak||[]).forEach(v=>{ if(v&&typeof v.ix==='number') cells[v.id]=v; }); drawCells();
     rons=(j.rondaan||[]).filter(r=>r&&typeof r.tarikh==='string'&&Array.isArray(r.petak))
       .sort((a,b)=>b.tarikh.localeCompare(a.tarikh)||String(b.keluar||'').localeCompare(String(a.keluar||'')));
-    refreshRons(); if(ronSel&&!formOpen) selectRon(ronSel);
+    refreshRons(); if(ronSel&&!formOpen&&!ronDelConfirm) selectRon(ronSel);
     const d=new Date(); $('syncTxt').textContent='Dikemas kini '+pad2(d.getHours())+':'+pad2(d.getMinutes()); }
   catch(e){ if(e.code!=='sesi') $('syncTxt').textContent='Gagal kemas kini'; if(!marks.length) $('list').innerHTML='<div class="empty">'+esc(e.message||'Data tidak dapat dimuatkan.')+'</div>'; }
   finally{ loading=false; } }
