@@ -193,7 +193,7 @@ h2{font-family:var(--display);font-size:13px;letter-spacing:.08em;text-transform
 .rr-map{width:100%;max-height:112mm;object-fit:contain;display:block}
 .rr-leg{align-self:flex-end;border:1.5px solid #000;padding:10px 26px 12px 18px;font-size:11pt;display:flex;flex-direction:column;gap:9px;min-width:56mm;margin-top:1mm}
 .rr-leg b{font-size:11pt}
-.rr-leg span{display:flex;align-items:center;gap:14px;font-weight:700;padding-left:6px}
+.rr-leg span{display:flex;align-items:center;gap:14px;font-weight:700;padding-left:6px;font-size:10pt;white-space:nowrap}
 .rr-leg i{display:inline-block;width:12mm;height:8mm;border:1.5px solid #1f2a44}
 @media print{
   @page{size:A4 portrait;margin:10mm}
@@ -1125,10 +1125,10 @@ function docxXml(pl){
   const tbl='<w:tbl><w:tblPr><w:tblW w:w="'+W.reduce((a,b)=>a+b,0)+'" w:type="dxa"/><w:jc w:val="center"/>'+B+'<w:tblLayout w:type="fixed"/><w:tblCellMar><w:left w:w="80" w:type="dxa"/><w:right w:w="80" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid>'+W.map(x=>'<w:gridCol w:w="'+x+'"/>').join('')+'</w:tblGrid>'+rows+'</w:tbl>';
   const LB='<w:tblBorders><w:top w:val="single" w:sz="8" w:color="000000"/><w:left w:val="single" w:sz="8" w:color="000000"/><w:bottom w:val="single" w:sz="8" w:color="000000"/><w:right w:val="single" w:sz="8" w:color="000000"/></w:tblBorders>';
   const sw=k=>'<w:tc><w:tcPr><w:tcW w:w="300" w:type="dxa"/></w:tcPr>'+wPara('',{})+'</w:tc><w:tc><w:tcPr><w:tcW w:w="700" w:type="dxa"/><w:tcBorders><w:top w:val="single" w:sz="8" w:color="1F2A44"/><w:left w:val="single" w:sz="8" w:color="1F2A44"/><w:bottom w:val="single" w:sz="8" w:color="1F2A44"/><w:right w:val="single" w:sz="8" w:color="1F2A44"/></w:tcBorders><w:shd w:val="clear" w:color="auto" w:fill="'+PCOL[k].slice(1).toUpperCase()+'"/></w:tcPr>'+wPara('',{})+'</w:tc>'+
-    '<w:tc><w:tcPr><w:tcW w:w="2000" w:type="dxa"/><w:vAlign w:val="center"/></w:tcPr>'+wPara(wRun(legNama(k),{b:1}),{jc:'left'})+'</w:tc>';
-  const leg='<w:tbl><w:tblPr><w:tblW w:w="3000" w:type="dxa"/><w:jc w:val="right"/>'+LB+'<w:tblLayout w:type="fixed"/><w:tblCellMar><w:left w:w="100" w:type="dxa"/><w:right w:w="100" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid><w:gridCol w:w="300"/><w:gridCol w:w="700"/><w:gridCol w:w="2000"/></w:tblGrid>'+
-    '<w:tr><w:trPr><w:trHeight w:val="420"/></w:trPr><w:tc><w:tcPr><w:tcW w:w="3000" w:type="dxa"/><w:gridSpan w:val="3"/><w:vAlign w:val="center"/></w:tcPr>'+wPara(wRun('PETUNJUK:',{b:1}),{jc:'left',before:60})+'</w:tc></w:tr>'+
-    pl.used.map(k=>'<w:tr><w:trPr><w:trHeight w:val="440" w:hRule="exact"/></w:trPr>'+sw(k)+'</w:tr><w:tr><w:trPr><w:trHeight w:val="100" w:hRule="exact"/></w:trPr><w:tc><w:tcPr><w:tcW w:w="3000" w:type="dxa"/><w:gridSpan w:val="3"/></w:tcPr>'+wPara('',{})+'</w:tc></w:tr>').join('')+'</w:tbl>';
+    '<w:tc><w:tcPr><w:tcW w:w="2500" w:type="dxa"/><w:vAlign w:val="center"/></w:tcPr>'+wPara(wRun(legNama(k),{b:1,sz:20}),{jc:'left'})+'</w:tc>';
+  const leg='<w:tbl><w:tblPr><w:tblW w:w="3500" w:type="dxa"/><w:jc w:val="right"/>'+LB+'<w:tblLayout w:type="fixed"/><w:tblCellMar><w:left w:w="100" w:type="dxa"/><w:right w:w="100" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid><w:gridCol w:w="300"/><w:gridCol w:w="700"/><w:gridCol w:w="2500"/></w:tblGrid>'+
+    '<w:tr><w:trPr><w:trHeight w:val="420"/></w:trPr><w:tc><w:tcPr><w:tcW w:w="3500" w:type="dxa"/><w:gridSpan w:val="3"/><w:vAlign w:val="center"/></w:tcPr>'+wPara(wRun('PETUNJUK:',{b:1,sz:20}),{jc:'left',before:60})+'</w:tc></w:tr>'+
+    pl.used.map(k=>'<w:tr><w:trPr><w:trHeight w:val="440" w:hRule="exact"/></w:trPr>'+sw(k)+'</w:tr><w:tr><w:trPr><w:trHeight w:val="100" w:hRule="exact"/></w:trPr><w:tc><w:tcPr><w:tcW w:w="3500" w:type="dxa"/><w:gridSpan w:val="3"/></w:tcPr>'+wPara('',{})+'</w:tc></w:tr>').join('')+'</w:tbl>';
   const NS='xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"';
   const T=(t)=>wRun(t,{b:1,u:1,sz:28});
   const body=wPara(T('RANCANGAN RONDA '+pl.pos),{})+wPara(T('BULAN '+pl.bulan),{after:200})+tbl+
