@@ -175,9 +175,36 @@ h2{font-family:var(--display);font-size:13px;letter-spacing:.08em;text-transform
 .user-chip{font-size:12px;opacity:.85;display:flex;align-items:center;gap:8px}
 .user-chip button{background:transparent;color:var(--bar-ink);border:1px solid rgba(255,255,255,.3);border-radius:6px;padding:5px 9px;font:600 12px var(--body);cursor:pointer}
 .sync{font-size:11px;opacity:.7}
+/* ---- cetak rancangan ronda ---- */
+#printArea{background:#fff;color:#000;font-family:"Times New Roman",Times,serif}
+.rr-page{width:186mm;margin:0 auto;padding:2mm 0;display:flex;flex-direction:column;align-items:center;gap:3mm}
+.rr-kelas{font-size:12pt;letter-spacing:.05em}
+.rr-title{font-weight:700;font-size:14pt;text-decoration:underline;text-align:center;line-height:1.3;margin:0}
+.rr-tbl{width:100%;border-collapse:collapse;font-size:10.5pt}
+.rr-tbl th,.rr-tbl td{border:1px solid #000;padding:2px 6px;text-align:center;vertical-align:middle}
+.rr-tbl th{background:#c8c8c8}
+.rr-tbl tbody td{font-size:10.5pt}
+.rr-tbl td.l{text-align:left}
+.rr-tbl tr.sep td{background:#d0d0d0;height:10px;padding:0}
+.rr-fig{display:flex;flex-direction:column;align-items:center;gap:3mm;width:100%;break-inside:avoid;page-break-inside:avoid}
+.rr-map{width:100%;max-height:112mm;object-fit:contain;display:block}
+.rr-leg{align-self:flex-end;border:1.5px solid #000;padding:10px 26px 12px 18px;font-size:11pt;display:flex;flex-direction:column;gap:9px;min-width:56mm;margin-top:1mm}
+.rr-leg b{font-size:11pt}
+.rr-leg span{display:flex;align-items:center;gap:14px;font-weight:700;padding-left:6px}
+.rr-leg i{display:inline-block;width:12mm;height:8mm;border:1.5px solid #1f2a44}
+@media print{
+  @page{size:A4 portrait;margin:10mm}
+  html,body{height:auto!important;overflow:visible!important;background:#fff!important}
+  .app,.login,.tip,.cursor-gr{display:none!important}
+  #printArea{display:block!important}
+  .rr-tbl th,.rr-tbl tr.sep td,.rr-leg i{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .rr-map{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
 </style>
 </head>
 <body>
+
+<div id="printArea" hidden></div>
 
 <div class="login" id="login" hidden>
   <form class="card" id="loginForm" autocomplete="on">
@@ -375,7 +402,10 @@ h2{font-family:var(--display);font-size:13px;letter-spacing:.08em;text-transform
             <label class="f">Keluar<input id="rKeluar" type="time" value="07:00"></label>
             <label class="f">Masuk<input id="rMasuk" type="time" value="15:00"></label>
           </div>
-          <label class="f">Pos<input id="rPos" list="posList" placeholder="Contoh: Pos Rapak Baru" maxlength="60"></label>
+          <div class="row2">
+            <label class="f">Pos<input id="rPos" list="posList" placeholder="Contoh: Pos Rapak Baru" maxlength="60"></label>
+            <label class="f">Seksyen<input id="rSeksyen" placeholder="Contoh: SEK 1" maxlength="20"></label>
+          </div>
           <datalist id="posList"></datalist>
           <div class="row2">
             <label class="f">Ketua ronda<input id="rKetua" placeholder="Pangkat & nama" maxlength="60"></label>
@@ -414,8 +444,24 @@ h2{font-family:var(--display);font-size:13px;letter-spacing:.08em;text-transform
         <h2>Senarai rondaan</h2>
         <p class="hint" style="margin-top:-8px">Ketik petak di peta untuk lihat sejarah rondaan petak tu.</p>
         <div class="list" id="ronList"><div class="empty">Memuatkan rondaan…</div></div>
-        <div class="actions"><button class="btn ghost" id="rCsv" type="button">Muat turun CSV rondaan</button></div>
+        <div class="actions"><button class="btn ghost" id="rCsv" type="button">Muat turun CSV rondaan</button>
+          <button class="btn ghost" id="rCetakBuka" type="button">Cetak rancangan ronda</button></div>
         <p class="hint" id="rCsvMsg" hidden></p>
+        <div class="detail" id="cetakPanel" hidden>
+          <h2>Cetak rancangan ronda ikut pos</h2>
+          <p class="hint">Jana dokumen A4 (jadual + gambar rajah petak) untuk satu pos, kemudian cetak atau simpan sebagai PDF.</p>
+          <label class="f">Pos<select id="cPos"></select></label>
+          <div class="row2">
+            <label class="f">Dari<input id="cDari" type="date"></label>
+            <label class="f">Hingga<input id="cHingga" type="date"></label>
+          </div>
+          <label class="f">Kelasifikasi<select id="cKelas"><option>TERHAD</option><option>SULIT</option><option>RAHSIA</option><option value="">Tiada</option></select></label>
+          <p class="err" id="cErr" hidden></p>
+          <div class="actions">
+            <button class="btn" id="cJana" type="button">Jana &amp; cetak</button>
+            <button class="btn ghost" id="cTutup" type="button">Tutup</button>
+          </div>
+        </div>
       </section>
     </aside>
   </div>
@@ -671,7 +717,7 @@ function openForm(r){ editId=r?r.id:null; formOpen=true; $('ronErr').hidden=true
   $('rFormTitle').textContent=r?'Kemaskini rondaan':'Set rondaan baru';
   $('rTarikh').value=r?r.tarikh:todayStr(); $('rJenis').value=(r&&jk(r))||'RJD'; $('rSektor').value=(r&&r.sektor)||$('rfSek').value||'B1';
   $('rKeluar').value=r?(r.keluar||''):'07:00'; $('rMasuk').value=r?(r.masuk||''):'15:00';
-  $('rPos').value=r?(r.pos||''):''; $('rKetua').value=r?(r.ketua||''):''; $('rKekuatan').value=r?(r.kekuatan||''):''; $('rCatatan').value=r?(r.catatan||''):'';
+  $('rPos').value=r?(r.pos||''):''; $('rKetua').value=r?(r.ketua||''):''; $('rSeksyen').value=r?(r.seksyen||''):''; $('rKekuatan').value=r?(r.kekuatan||''):''; $('rCatatan').value=r?(r.catatan||''):'';
   route=r?(r.laluan||[]).map(p=>[p.E,p.N]):[]; finds=r?(r.penemuan||[]).map(f=>Object.assign({},f)):[];
   setClickFor(r&&isDone(r)?'penemuan':'laluan');
   renderFinds(); $('ronDetail').hidden=true; ronSel=null; ronSelLayer.clearLayers();
@@ -718,7 +764,7 @@ $('rSimpan').onclick=async()=>{ $('ronErr').hidden=true;
   if(ronBusy) return; ronBusy=true; $('rSimpan').disabled=true;
   const petak=routeCells(route), old=editId?rons.find(x=>x.id===editId):null;
   const rec={tarikh,jenis:$('rJenis').value,keluar:$('rKeluar').value,masuk:$('rMasuk').value,pos:$('rPos').value.trim(),sektor:$('rSektor').value,
-    ketua:$('rKetua').value.trim(),kekuatan:$('rKekuatan').value.trim(),laluan:route.map(p=>({E:p[0],N:p[1]})),
+    ketua:$('rKetua').value.trim(),seksyen:$('rSeksyen').value.trim(),kekuatan:$('rKekuatan').value.trim(),laluan:route.map(p=>({E:p[0],N:p[1]})),
     jarakKm:+routeKm(route).toFixed(2),petak,penemuan:finds,catatan:$('rCatatan').value.trim(),
     oleh:(old&&old.oleh)||uid||'',masa:(old&&old.masa)||new Date().toISOString(),diubah:new Date().toISOString()};
   try{ if(editId) await db.collection('rondaan').doc(editId).set(rec); else await db.collection('rondaan').add(rec);
@@ -795,8 +841,8 @@ function showRonDetailCell(ix,iy){ const el=$('ronDetail'); el.hidden=false; el.
 
 $('rCsv').onclick=async()=>{ const em=$('rCsvMsg'); em.hidden=false;
   if(!dlApi){ em.textContent='Muat turun tidak tersedia di paparan ini.'; return; }
-  const rows=[['Tarikh','Jenis','Status','Keluar','Masuk','Pos','Sektor','Ketua','Kekuatan','Jarak (km)','Bil petak','Petak','Laluan GR','Penemuan','Catatan']].concat(
-    ronFiltered().map(r=>[r.tarikh,jk(r)?jNama(r)+' ('+jk(r)+')':'',isDone(r)?'Dah dironda':'Dirancang',r.keluar||'',r.masuk||'',r.pos,r.sektor||'',r.ketua||'',r.kekuatan||'',(r.jarakKm||0).toFixed(2),(r.petak||[]).length,
+  const rows=[['Tarikh','Jenis','Seksyen','Status','Keluar','Masuk','Pos','Sektor','Ketua','Kekuatan','Jarak (km)','Bil petak','Petak','Laluan GR','Penemuan','Catatan']].concat(
+    ronFiltered().map(r=>[r.tarikh,jk(r)?jNama(r)+' ('+jk(r)+')':'',r.seksyen||'',isDone(r)?'Dah dironda':'Dirancang',r.keluar||'',r.masuk||'',r.pos,r.sektor||'',r.ketua||'',r.kekuatan||'',(r.jarakKm||0).toFixed(2),(r.petak||[]).length,
       (r.petak||[]).map(id=>{ const [ix,iy]=id.slice(1).split('_').map(Number); return cellRef(ix,iy); }).join('; '),
       (r.laluan||[]).map(p=>fmtGR(p.E,p.N,6)).join(' > '),
       (r.penemuan||[]).map(f=>f.jenis+(typeof f.E==='number'?' @ GR '+fmtGR(f.E,f.N,6)+' '+sheetName(f.E,f.N)+' '+gmapsUrl(f.E,f.N):'')+(f.ket?' ('+f.ket+')':'')).join('; '),r.catatan||'']));
@@ -845,6 +891,97 @@ function renderStat(){ const rows=statRows(), all7=rows.filter(m=>ageDays(m._t)<
   const ang=rows.filter(m=>m._anggar).length; $('stNota').hidden=!ang;
   $('stNota').textContent=ang+' rekod belum ada tarikh/masa kejadian, jadi tarikh simpan digunakan dan waktunya tidak dikira. Buka rekod tu dan tekan Kemaskini untuk isi.'; }
 ['sKat','sSek','sHari'].forEach(id=>$(id).onchange=renderStat);
+
+/* ---- cetak rancangan ronda ikut pos ---- */
+const BULAN=['JANUARI','FEBRUARI','MAC','APRIL','MEI','JUN','JULAI','OGOS','SEPTEMBER','OKTOBER','NOVEMBER','DISEMBER'];
+function tkhPendek(s){ const [y,m,d]=s.split('-'); const B=['Jan','Feb','Mac','Apr','Mei','Jun','Jul','Ogo','Sep','Okt','Nov','Dis']; return (+d)+' '+B[(+m)-1]+' '+y.slice(2); }
+function ppOf(id){ const [ix,iy]=id.slice(1).split('_').map(Number); const em=ix-(ix>=100?100:0), nm=iy>=0?iy:iy+100; return String(em).padStart(2,'0')+String(nm).padStart(2,'0'); }
+function isoMon(s){ const d=new Date(s+'T00:00:00'); const k=(d.getDay()+6)%7; d.setDate(d.getDate()-k); return d.toISOString().slice(0,10); }
+$('rCetakBuka').onclick=()=>{ const ps=[...new Set(rons.map(r=>r.pos).filter(Boolean))].sort();
+  $('cPos').innerHTML=ps.length?ps.map(p=>'<option>'+esc(p)+'</option>').join(''):'<option value="">Tiada rondaan lagi</option>';
+  const t=new Date(), a=new Date(t.getFullYear(),t.getMonth(),1), b=new Date(t.getFullYear(),t.getMonth()+1,0);
+  const f=d=>d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());
+  if(!$('cDari').value) $('cDari').value=f(a); if(!$('cHingga').value) $('cHingga').value=f(b);
+  $('cErr').hidden=true; $('cetakPanel').hidden=false; $('cetakPanel').scrollIntoView({block:'nearest'}); };
+$('cTutup').onclick=()=>{ $('cetakPanel').hidden=true; };
+function loadImg(src){ return new Promise(ok=>{ const im=new Image(); im.onload=()=>ok(im); im.onerror=()=>ok(null); im.src=src; }); }
+/* Print palette = the paper plan's pastel fills (light blue RJD, pink RJJ, light green KEN) */
+const PCOL={RJD:'#a9c8ea',RJJ:'#f6a6a6',KEN:'#b9dca2','':'#d0d0d0'};
+async function rajah(list,pos){
+  const ids=[...new Set(list.flatMap(r=>r.petak||[]))]; if(!ids.length) return null;
+  const cs=ids.map(id=>id.slice(1).split('_').map(Number));
+  const pm=marks.find(m=>m.kategori==='pos'&&m.nama===pos);
+  let e0=Math.min(...cs.map(c=>c[0])), e1=Math.max(...cs.map(c=>c[0]))+1, n0=Math.min(...cs.map(c=>c[1])), n1=Math.max(...cs.map(c=>c[1]))+1;
+  if(pm){ e0=Math.min(e0,Math.floor(pm.E)); e1=Math.max(e1,Math.ceil(pm.E)+3); n0=Math.min(n0,Math.floor(pm.N)); n1=Math.max(n1,Math.ceil(pm.N)); }
+  e0-=2; e1+=3; n0-=1; n1+=1;
+  const want=1.75; let w=e1-e0, hh=n1-n0;                     // wide box like the paper plan
+  if(w/hh<want){ const add=hh*want-w; e0-=add*0.35; e1+=add*0.65; } else { const add=w/want-hh; n0-=add/2; n1+=add/2; }
+  e0=Math.floor(e0); n1=Math.ceil(n1); w=Math.ceil(e1-e0); hh=Math.ceil(n1-n0); e1=e0+w; n0=n1-hh;
+  const z=w>26?6:7, s=2**z, T=2048;
+  const cw=Math.round(w*s), ch=Math.round(hh*s);
+  const cv=document.createElement('canvas'); cv.width=cw; cv.height=ch; const g=cv.getContext('2d');
+  g.fillStyle='#fff'; g.fillRect(0,0,cw,ch);
+  const X=E=>(E-e0)*s, Y=N=>(n1-N)*s;
+  const tx0=Math.floor(e0*s/T), tx1=Math.floor((e1*s-1)/T), ty0=Math.floor(-n1*s/T), ty1=Math.floor((-n0*s-1)/T), jobs=[];
+  for(let tx=tx0;tx<=tx1;tx++) for(let ty=ty0;ty<=ty1;ty++) jobs.push(loadImg('tilesp/'+z+'/'+tx+'/'+ty+'.jpg').then(im=>im||loadImg('tiles/'+z+'/'+tx+'/'+ty+'.jpg')).then(im=>{ if(im) g.drawImage(im,tx*T-e0*s,ty*T+n1*s); }));
+  await Promise.all(jobs);
+  // cells: one colour per plan type, outlined, date top-left and PP number below
+  const per={}; list.forEach(r=>(r.petak||[]).forEach(id=>{ if(!per[id]||r.tarikh>per[id].tarikh) per[id]=r; }));
+  const fs=Math.max(12,Math.round(s*0.15));
+  Object.entries(per).forEach(([id,r])=>{ const [ix,iy]=id.slice(1).split('_').map(Number), x=X(ix), y=Y(iy+1);
+    g.globalAlpha=.78; g.fillStyle=PCOL[jk(r)]; g.fillRect(x,y,s,s); g.globalAlpha=1; });
+  Object.entries(per).forEach(([id,r])=>{ const [ix,iy]=id.slice(1).split('_').map(Number), x=X(ix), y=Y(iy+1);
+    g.lineWidth=Math.max(1.5,s/70); g.strokeStyle='#1f2a44'; g.strokeRect(x,y,s,s);
+    const [yy,mm,dd]=r.tarikh.split('-'); g.fillStyle='#000'; g.font='bold '+fs+'px "Times New Roman", Times, serif'; g.textBaseline='top';
+    g.fillText(dd+'/'+mm+'/'+yy.slice(2),x+s*0.06,y+s*0.08); g.fillText('PP '+ppOf(id),x+s*0.06,y+s*0.52); });
+  // pos: dot, arrow line, yellow label box
+  if(pm){ const px=X(pm.E), py=Y(pm.N), lab=pm.nama.toUpperCase();
+    g.font='bold '+Math.max(11,Math.round(s*0.13))+'px Arial, sans-serif'; const tw=g.measureText(lab).width, bh=s*0.26;
+    let bx=px+s*1.6; if(bx+tw+16>cw) bx=px-s*1.6-tw-16; const by=py-bh/2;
+    g.strokeStyle='#000'; g.lineWidth=Math.max(1.5,s/80); g.beginPath(); g.moveTo(bx<px?bx+tw+16:bx,py); g.lineTo(px,py); g.stroke();
+    const dir=bx<px?1:-1, ah=s*0.09; g.fillStyle='#000'; g.beginPath(); g.moveTo(px+dir*s*0.07,py); g.lineTo(px+dir*(s*0.07+ah),py-ah*0.5); g.lineTo(px+dir*(s*0.07+ah),py+ah*0.5); g.closePath(); g.fill();
+    g.beginPath(); g.arc(px,py,s*0.05,0,7); g.fill();
+    g.fillStyle='#fff200'; g.fillRect(bx,by,tw+16,bh); g.strokeRect(bx,by,tw+16,bh); g.fillStyle='#000'; g.textBaseline='middle'; g.fillText(lab,bx+8,py+1); }
+  // yellow grid numbers: northings on the left edge, eastings on the bottom edge (every 5 km line)
+  const R=Math.max(16,s*0.27);
+  const bub=(x,y,t)=>{ g.beginPath(); g.arc(x,y,R,0,7); g.fillStyle='#fff200'; g.fill(); g.lineWidth=Math.max(1.5,s/90); g.strokeStyle='#000'; g.stroke();
+    g.fillStyle='#000'; g.font='bold '+Math.round(R*0.95)+'px Arial, sans-serif'; g.textAlign='center'; g.textBaseline='middle'; g.fillText(t,x,y+1); g.textAlign='left'; };
+  for(let N=Math.ceil(n0+0.6);N<=n1-0.6;N++){ if(((N%5)+5)%5) continue; bub(R+12,Y(N),String(N>=0?N:N+100).padStart(2,'0')); }
+  for(let E=Math.ceil(e0+0.6);E<=e1-0.6;E++){ if(E%5) continue; bub(X(E),ch-R-12,String((E>=100?E-100:E)).padStart(2,'0')); }
+  g.lineWidth=2; g.strokeStyle='#000'; g.strokeRect(1,1,cw-2,ch-2);
+  return cv.toDataURL('image/jpeg',0.92); }
+$('cJana').onclick=async()=>{ $('cErr').hidden=true; const pos=$('cPos').value, a=$('cDari').value, b=$('cHingga').value;
+  if(!pos) return msg('cErr','Tiada rondaan untuk dicetak. Set rondaan dahulu.');
+  if(!a||!b||a>b) return msg('cErr','Pilih julat tarikh yang betul.');
+  const list=rons.filter(r=>r.pos===pos&&r.tarikh>=a&&r.tarikh<=b).sort((x,y)=>x.tarikh.localeCompare(y.tarikh)||String(x.keluar||'').localeCompare(String(y.keluar||'')));
+  if(!list.length) return msg('cErr','Tiada rondaan '+pos+' antara '+tkhPendek(a)+' dan '+tkhPendek(b)+'.');
+  $('cJana').disabled=true; $('cJana').textContent='Menjana…';
+  try{
+    const weeks=[...new Set(list.map(r=>isoMon(r.tarikh)))]; const wk=r=>weeks.indexOf(isoMon(r.tarikh))+1;
+    let rows='', bil=0;
+    weeks.forEach((wm,wi)=>{ const grp=list.filter(r=>isoMon(r.tarikh)===wm);
+      if(wi>0) rows+='<tr class="sep"><td colspan="6"></td></tr>';
+      const span=(arr,key,i)=>{ if(i>0&&key(arr[i])===key(arr[i-1])) return 0; let n=1; while(i+n<arr.length&&key(arr[i+n])===key(arr[i])) n++; return n; };
+      grp.forEach((r,i)=>{ bil++; const sk=span(grp,x=>x.seksyen||'',i), jj=span(grp,x=>jk(x)||'',i);
+        rows+='<tr><td>'+bil+'.</td>'+(i===0?'<td rowspan="'+grp.length+'">Minggu '+(wi+1)+'</td>':'')+
+          '<td>'+esc(tkhPendek(r.tarikh))+'</td><td>'+esc((r.petak||[]).map(ppOf).join(', '))+'</td>'+
+          (sk?'<td rowspan="'+sk+'">'+esc(r.seksyen||'')+'</td>':'')+(jj?'<td rowspan="'+jj+'">'+esc(jk(r)||'')+'</td>':'')+'</tr>'; }); });
+    const yA=a.slice(0,4), mA=BULAN[+a.slice(5,7)-1], mB=BULAN[+b.slice(5,7)-1], yB=b.slice(0,4);
+    const bulan=(mA===mB&&yA===yB)?mA+' '+yA:(yA===yB?mA+' – '+mB+' '+yA:mA+' '+yA+' – '+mB+' '+yB);
+    const img=await rajah(list,pos), P=esc(pos.toUpperCase()), K=esc($('cKelas').value);
+    const used=['RJD','RJJ','KEN'].filter(k=>list.some(r=>jk(r)===k));
+    $('printArea').innerHTML='<div class="rr-page">'+(K?'<div class="rr-kelas">'+K+'</div>':'')+
+      '<p class="rr-title">RANCANGAN RONDA '+P+'<br>BULAN '+bulan+'</p>'+
+      '<table class="rr-tbl"><thead><tr><th>Bil</th><th>Minggu</th><th>Tarikh</th><th>Petak Peta</th><th>Seksyen</th><th>Catatan</th></tr>'+
+      '<tr><th>(a)</th><th>(b)</th><th>(c)</th><th>(d)</th><th>(e)</th><th>(f)</th></tr></thead><tbody>'+rows+'</tbody></table>'+
+      '<div class="rr-fig"><p class="rr-title" style="margin-top:2mm">GAMBAR RAJAH RANCANGAN RONDA<br>'+P+' '+yA+'</p>'+
+      (img?'<img class="rr-map" src="'+img+'" alt="Gambar rajah rancangan ronda">':'')+
+      '<div class="rr-leg"><b>PETUNJUK:</b>'+(used.length?used:['RJD','RJJ']).map(k=>'<span><i style="background:'+PCOL[k]+'"></i>'+(k==='KEN'?'BERKENDERAAN':k)+'</span>').join('')+'</div></div>'+
+      (K?'<div class="rr-kelas">'+K+'</div>':'')+'</div>';
+    const im=$('printArea').querySelector('img'); if(im&&!im.complete) await new Promise(ok=>{ im.onload=ok; im.onerror=ok; });
+    window.print();
+  }catch(e){ msg('cErr','Tak dapat jana dokumen: '+(e.message||e)); }
+  finally{ $('cJana').disabled=false; $('cJana').textContent='Jana & cetak'; } };
 
 /* ---- access banner ---- */
 function applyAccess(){ $('accessBanner').hidden=true; }
