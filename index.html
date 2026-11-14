@@ -17,7 +17,7 @@ img{max-width:100%}
   --bg:#eef0ea; --panel:#fbfbf8; --ink:#1d2421; --muted:#5d6a63; --line:#d3d8cf;
   --bar:#22302a; --bar-ink:#eef3ec; --accent:#d4561c; --accent-ink:#ffffff; --field:#ffffff;
   --st-dironda:#2f9e44; --st-belum:#e6b800; --st-perhatian:#e8590c; --st-larangan:#c92a2a;
-  --k-pos:#1c63d6; --k-kampung:#6b4fbb; --k-sasaran:#c92a2a; --k-insiden:#e8590c; --k-lain:#343a40; --chart:#2f6fd0; --chart-grid:#e1e5dd;
+  --k-pos:#1c63d6; --k-kampung:#6b4fbb; --k-sasaran:#c92a2a; --k-insiden:#e8590c; --k-lain:#343a40; --chart:#2f6fd0; --chart-grid:#e1e5dd; --j-rjd:#1971c2; --j-rjj:#a61e4d; --j-ken:#5c940d; --j-x:#868e96;
   --display:"IBM Plex Sans Condensed","Arial Narrow",system-ui,sans-serif;
   --body:"IBM Plex Sans Condensed",system-ui,-apple-system,"Segoe UI",sans-serif;
   --mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
@@ -133,8 +133,12 @@ h2{font-family:var(--display);font-size:13px;letter-spacing:.08em;text-transform
 .sheet-lbl b{font-family:var(--mono);font-weight:600}
 #map.zvfar .sheet-lbl{display:none}
 .cov-lbl{width:0!important;height:0!important;pointer-events:none}
-.cov-lbl span{display:inline-block;transform:translate(-50%,-50%);white-space:nowrap;font:600 10px var(--mono);color:#14532d;background:rgba(255,255,255,.8);border-radius:3px;padding:0 3px;line-height:14px}
-.cov-lbl.plan span{color:#7a5c00}
+.cov-lbl span{display:inline-block;transform:translate(-50%,-50%);white-space:nowrap;font:700 9px var(--mono);color:var(--jc,#1d2421);background:rgba(255,255,255,.88);border-radius:3px;padding:0 3px;line-height:13px;border:1px solid var(--jc,#1d2421)}
+.cov-lbl.plan span{border-style:dashed;font-style:italic}
+.jchip{display:inline-block;font:700 10px var(--mono);color:#fff;border-radius:3px;padding:1px 5px;vertical-align:1px}
+.legend .pat{display:inline-block;width:14px;height:14px;border-radius:3px;border:2px solid var(--muted)}
+.legend .pat.plan{border-style:dashed;background:transparent}
+.legend .pat.done{background:color-mix(in srgb,var(--muted) 45%,transparent)}
 #map.zfar .cov-lbl{display:none}
 .cursor-gr{position:absolute;left:max(10px,env(safe-area-inset-left,0px));bottom:10px;z-index:900;background:rgba(29,36,33,.86);color:#fff;font:600 12px var(--mono);padding:5px 8px;border-radius:5px;pointer-events:none}
 /* --- minimal Leaflet 1.9 core styles --- */
@@ -339,12 +343,18 @@ h2{font-family:var(--display);font-size:13px;letter-spacing:.08em;text-transform
       <!-- RONDAAN -->
       <section class="pane" id="paneRondaan" hidden>
         <div class="legend">
-          <span><i class="sw" style="background:var(--st-dironda)"></i>Dah dironda (tarikh dah lepas)</span>
-          <span><i class="sw" style="background:var(--st-belum)"></i>Dirancang (belum sampai tarikh)</span>
+          <span><i class="sw" style="background:var(--j-rjd)"></i>RJD · Ronda Jarak Dekat</span>
+          <span><i class="sw" style="background:var(--j-rjj)"></i>RJJ · Ronda Jarak Jauh</span>
+          <span><i class="sw" style="background:var(--j-ken)"></i>KEN · Ronda Berkenderaan</span>
+        </div>
+        <div class="legend">
+          <span><i class="pat done"></i>Kotak berwarna = dah dironda</span>
+          <span><i class="pat plan"></i>Garis putus-putus = dirancang</span>
         </div>
         <label class="chk"><input type="checkbox" id="rCov" checked> Tunjuk warna rondaan di peta</label>
         <div class="row2">
           <select id="rfSek" aria-label="Tapis sektor"><option value="">Semua sektor</option><option>B1</option><option>B2</option><option>B3</option></select>
+          <select id="rfJenis" aria-label="Tapis jenis rondaan"><option value="">Semua jenis</option><option value="RJD">RJD</option><option value="RJJ">RJJ</option><option value="KEN">Berkenderaan</option></select>
           <select id="rfHari" aria-label="Tempoh rondaan selesai"><option value="7">Selesai 7 hari lepas</option><option value="30" selected>Selesai 30 hari lepas</option><option value="0">Semua</option></select>
         </div>
         <div class="counts">
@@ -360,6 +370,7 @@ h2{font-family:var(--display);font-size:13px;letter-spacing:.08em;text-transform
             <label class="f">Tarikh<input id="rTarikh" type="date"></label>
             <label class="f">Sektor<select id="rSektor"><option>B1</option><option>B2</option><option>B3</option></select></label>
           </div>
+          <label class="f">Jenis rondaan<select id="rJenis"><option value="RJD">Ronda Jarak Dekat (RJD)</option><option value="RJJ">Ronda Jarak Jauh (RJJ)</option><option value="KEN">Ronda Berkenderaan</option></select></label>
           <div class="row2">
             <label class="f">Keluar<input id="rKeluar" type="time" value="07:00"></label>
             <label class="f">Masuk<input id="rMasuk" type="time" value="15:00"></label>
@@ -641,7 +652,12 @@ function fmtTarikh(s){ if(!s) return ''; const [y,m,d]=s.split('-'); const B=['J
 function ageDays(s){ const t=new Date(s+'T00:00:00'), n=new Date(todayStr()+'T00:00:00'); return Math.round((n-t)/86400000); }
 const isDone=r=>r.tarikh<=todayStr();
 function statusText(r){ if(isDone(r)) return 'Dah dironda'; const d=-ageDays(r.tarikh); return 'Dirancang · '+(d===1?'esok':d+' hari lagi'); }
-const statusCol=r=>isDone(r)?css('--st-dironda'):css('--st-belum');
+const JENIS={RJD:'Ronda Jarak Dekat',RJJ:'Ronda Jarak Jauh',KEN:'Ronda Berkenderaan'};
+const jk=r=>JENIS[r&&r.jenis]?r.jenis:'';
+const JCOL=k=>css(k==='RJD'?'--j-rjd':k==='RJJ'?'--j-rjj':k==='KEN'?'--j-ken':'--j-x');
+const statusCol=r=>JCOL(jk(r));
+const jChip=r=>'<span class="jchip" style="background:'+JCOL(jk(r))+'">'+(jk(r)||'—')+'</span>';
+const jNama=r=>JENIS[jk(r)]||'Jenis tidak dinyatakan';
 function routeKm(r){ let k=0; for(let i=1;i<r.length;i++) k+=Math.hypot(r[i][0]-r[i-1][0],r[i][1]-r[i-1][1]); return k; }
 function routeCells(r){ const s=new Set(); const add=(E,N)=>s.add('c'+Math.floor(E)+'_'+Math.floor(N));
   if(r.length) add(r[0][0],r[0][1]);
@@ -653,7 +669,7 @@ $('cfLaluan').onclick=()=>setClickFor('laluan'); $('cfPenemuan').onclick=()=>set
 
 function openForm(r){ editId=r?r.id:null; formOpen=true; $('ronErr').hidden=true; $('ronOk').hidden=true;
   $('rFormTitle').textContent=r?'Kemaskini rondaan':'Set rondaan baru';
-  $('rTarikh').value=r?r.tarikh:todayStr(); $('rSektor').value=(r&&r.sektor)||$('rfSek').value||'B1';
+  $('rTarikh').value=r?r.tarikh:todayStr(); $('rJenis').value=(r&&jk(r))||'RJD'; $('rSektor').value=(r&&r.sektor)||$('rfSek').value||'B1';
   $('rKeluar').value=r?(r.keluar||''):'07:00'; $('rMasuk').value=r?(r.masuk||''):'15:00';
   $('rPos').value=r?(r.pos||''):''; $('rKetua').value=r?(r.ketua||''):''; $('rKekuatan').value=r?(r.kekuatan||''):''; $('rCatatan').value=r?(r.catatan||''):'';
   route=r?(r.laluan||[]).map(p=>[p.E,p.N]):[]; finds=r?(r.penemuan||[]).map(f=>Object.assign({},f)):[];
@@ -677,9 +693,9 @@ function drawDraft(){ draftLayer.clearLayers();
   $('rJarak').textContent=route.length+' titik · '+km.toFixed(1)+' km · '+nc+' petak';
   if(mode!=='rondaan'||!formOpen) return;
   routeCells(route).forEach(id=>{ const [ix,iy]=id.slice(1).split('_').map(Number);
-    draftLayer.addLayer(L.rectangle([[iy,ix],[iy+1,ix+1]],{color:css('--accent'),weight:1,fillOpacity:.12,interactive:false})); });
-  if(route.length>1) draftLayer.addLayer(L.polyline(route.map(p=>[p[1],p[0]]),{color:css('--accent'),weight:4,dashArray:'8 6',interactive:false}));
-  route.forEach((p,i)=>draftLayer.addLayer(L.circleMarker([p[1],p[0]],{radius:i===0||i===route.length-1?6:4,color:'#fff',weight:2,fillColor:css('--accent'),fillOpacity:1,interactive:false})));
+    draftLayer.addLayer(L.rectangle([[iy,ix],[iy+1,ix+1]],{color:JCOL($('rJenis').value),weight:1,fillOpacity:.12,interactive:false})); });
+  if(route.length>1) draftLayer.addLayer(L.polyline(route.map(p=>[p[1],p[0]]),{color:JCOL($('rJenis').value),weight:4,dashArray:'8 6',interactive:false}));
+  route.forEach((p,i)=>draftLayer.addLayer(L.circleMarker([p[1],p[0]],{radius:i===0||i===route.length-1?6:4,color:'#fff',weight:2,fillColor:JCOL($('rJenis').value),fillOpacity:1,interactive:false})));
   finds.forEach(f=>{ if(typeof f.E==='number') draftLayer.addLayer(L.circleMarker([f.N,f.E],{radius:7,color:'#000',weight:2,fillColor:'#ffd43b',fillOpacity:1,interactive:false})); }); }
 
 $('pnTambah').onclick=()=>{ $('ronErr').hidden=true; const jenis=$('pnJenis').value;
@@ -701,7 +717,7 @@ $('rSimpan').onclick=async()=>{ $('ronErr').hidden=true;
   if(canWrite===false) return msg('ronErr','Anda hanya boleh melihat. Minta akses Contributor untuk set rondaan.');
   if(ronBusy) return; ronBusy=true; $('rSimpan').disabled=true;
   const petak=routeCells(route), old=editId?rons.find(x=>x.id===editId):null;
-  const rec={tarikh,keluar:$('rKeluar').value,masuk:$('rMasuk').value,pos:$('rPos').value.trim(),sektor:$('rSektor').value,
+  const rec={tarikh,jenis:$('rJenis').value,keluar:$('rKeluar').value,masuk:$('rMasuk').value,pos:$('rPos').value.trim(),sektor:$('rSektor').value,
     ketua:$('rKetua').value.trim(),kekuatan:$('rKekuatan').value.trim(),laluan:route.map(p=>({E:p[0],N:p[1]})),
     jarakKm:+routeKm(route).toFixed(2),petak,penemuan:finds,catatan:$('rCatatan').value.trim(),
     oleh:(old&&old.oleh)||uid||'',masa:(old&&old.masa)||new Date().toISOString(),diubah:new Date().toISOString()};
@@ -711,18 +727,19 @@ $('rSimpan').onclick=async()=>{ $('ronErr').hidden=true;
   catch(e){ writeFail(e,'ronErr'); }
   finally{ ronBusy=false; $('rSimpan').disabled=false; } };
 
-function ronFiltered(){ const s=$('rfSek').value, h=+$('rfHari').value;
-  return rons.filter(r=>(!s||r.sektor===s)&&(!isDone(r)||!h||ageDays(r.tarikh)<=h)); }
+function ronFiltered(){ const s=$('rfSek').value, h=+$('rfHari').value, j=$('rfJenis').value;
+  return rons.filter(r=>(!s||r.sektor===s)&&(!j||jk(r)===j)&&(!isDone(r)||!h||ageDays(r.tarikh)<=h)); }
 function computeCoverage(){ coverage={};
   ronFiltered().forEach(r=>(r.petak||[]).forEach(id=>{ const [ix,iy]=id.slice(1).split('_').map(Number);
-    const c=coverage[id]||(coverage[id]={ix,iy,done:null,plan:null,n:0});
-    if(isDone(r)){ c.n++; if(!c.done||r.tarikh>c.done) c.done=r.tarikh; } else if(!c.plan||r.tarikh<c.plan) c.plan=r.tarikh; })); }
+    const c=coverage[id]||(coverage[id]={ix,iy,done:null,plan:null,n:0,jd:'',jp:''});
+    if(isDone(r)){ c.n++; if(!c.done||r.tarikh>c.done){ c.done=r.tarikh; c.jd=jk(r); } } else if(!c.plan||r.tarikh<c.plan){ c.plan=r.tarikh; c.jp=jk(r); } })); }
 function drawCoverage(){ covLayer.clearLayers(); if(!$('rCov').checked) return;
-  Object.values(coverage).forEach(c=>{ const col=c.done?css('--st-dironda'):css('--st-belum');
-    covLayer.addLayer(L.rectangle([[c.iy,c.ix],[c.iy+1,c.ix+1]],{color:col,weight:1,fillColor:col,fillOpacity:.32,interactive:false}));
+  Object.values(coverage).forEach(c=>{ const done=!!c.done, k=done?c.jd:c.jp, col=JCOL(k);
+    covLayer.addLayer(L.rectangle([[c.iy,c.ix],[c.iy+1,c.ix+1]],done?{color:col,weight:1.5,fillColor:col,fillOpacity:.35,interactive:false}
+      :{color:col,weight:2,dashArray:'5 4',fillColor:col,fillOpacity:.08,interactive:false}));
     const t=c.done||c.plan, hb=t.slice(8,10)+'/'+t.slice(5,7);
     covLayer.addLayer(L.marker([c.iy+0.5,c.ix+0.5],{interactive:false,keyboard:false,
-      icon:L.divIcon({className:'cov-lbl'+(c.done?'':' plan'),html:'<span>'+hb+'</span>',iconSize:null,iconAnchor:[0,0]})})); }); }
+      icon:L.divIcon({className:'cov-lbl'+(done?'':' plan'),html:'<span style="--jc:'+col+'">'+(k?k+' ':'')+hb+'</span>',iconSize:null,iconAnchor:[0,0]})})); }); }
 $('rCov').onchange=drawCoverage;
 function refreshRons(){ computeCoverage(); drawCoverage(); renderRons(); }
 function renderRons(){ const list=ronFiltered().slice().sort((a,b)=>{ const da=isDone(a),dbb=isDone(b);
@@ -734,21 +751,21 @@ function renderRons(){ const list=ronFiltered().slice().sort((a,b)=>{ const da=i
   if(!list.length){ el.innerHTML='<div class="empty">Tiada rondaan dalam tapisan ini.</div>'; return; }
   el.innerHTML=list.map(r=>{ const pn=(r.penemuan||[]).filter(f=>f.jenis!=='Tiada penemuan').length;
     return '<div class="item" data-id="'+esc(r.id)+'" tabindex="0"><i class="dot" style="background:'+statusCol(r)+'"></i>'+
-    '<div style="min-width:0"><div class="t">'+esc(r.pos)+' · '+esc(r.sektor||'')+'</div><div class="m">'+esc(fmtTarikh(r.tarikh))+' · '+esc(statusText(r))+'</div></div>'+
+    '<div style="min-width:0"><div class="t">'+jChip(r)+' '+esc(r.pos)+' · '+esc(r.sektor||'')+'</div><div class="m">'+esc(fmtTarikh(r.tarikh))+' · '+esc(statusText(r))+'</div></div>'+
     '<span class="gr">'+(r.jarakKm||0).toFixed(1)+' km'+(pn?' · '+pn+' ⚑':'')+'</span></div>'; }).join('');
   el.querySelectorAll('.item').forEach(it=>{ const go=()=>selectRon(it.dataset.id); it.onclick=go; it.onkeydown=e=>{ if(e.key==='Enter') go(); }; }); }
-$('rfSek').onchange=refreshRons; $('rfHari').onchange=refreshRons;
+$('rfSek').onchange=refreshRons; $('rfHari').onchange=refreshRons; $('rfJenis').onchange=refreshRons; $('rJenis').onchange=drawDraft;
 let ronDelConfirm=false;
 function selectRon(id){ if(formOpen) closeForm(); ronSel=id; const r=rons.find(x=>x.id===id); ronSelLayer.clearLayers(); const el=$('ronDetail');
   if(!r){ el.hidden=true; return; }
-  const pts=(r.laluan||[]).map(p=>[p.N,p.E]), col=isDone(r)?'#1c63d6':'#b08900';
-  if(pts.length>1) ronSelLayer.addLayer(L.polyline(pts,{color:col,weight:5,interactive:false}));
+  const pts=(r.laluan||[]).map(p=>[p.N,p.E]), col=statusCol(r);
+  if(pts.length>1) ronSelLayer.addLayer(L.polyline(pts,isDone(r)?{color:col,weight:5,interactive:false}:{color:col,weight:5,dashArray:'10 7',interactive:false}));
   pts.forEach(p=>ronSelLayer.addLayer(L.circleMarker(p,{radius:4,color:'#fff',weight:2,fillColor:col,fillOpacity:1,interactive:false})));
   (r.penemuan||[]).forEach(f=>{ if(typeof f.E==='number') ronSelLayer.addLayer(L.circleMarker([f.N,f.E],{radius:7,color:'#000',weight:2,fillColor:'#ffd43b',fillOpacity:1}).bindTooltip(esc(f.jenis),{className:'mk-label',direction:'right',offset:[8,0]})); });
   if(pts.length) map.flyToBounds(L.latLngBounds(pts).pad(0.4),{duration:.6,maxZoom:8});
   ronDelConfirm=false; el.hidden=false; el.className='detail';
   const g=(r.laluan||[]).map(p=>fmtGR(p.E,p.N,6)), w=db&&canWrite!==false;
-  el.innerHTML='<h2><i class="sw" style="display:inline-block;vertical-align:-2px;background:'+statusCol(r)+'"></i> '+esc(statusText(r))+' · Sektor '+esc(r.sektor||'')+'</h2><div style="font-weight:700;font-size:17px">'+esc(r.pos)+'</div>'+
+  el.innerHTML='<h2>'+jChip(r)+' '+esc(jNama(r))+'</h2><div class="hint" style="margin-top:-4px">'+esc(statusText(r))+' · Sektor '+esc(r.sektor||'')+'</div><div style="font-weight:700;font-size:17px">'+esc(r.pos)+'</div>'+
     '<div class="m" style="font:12px var(--mono);color:var(--muted)">'+esc(fmtTarikh(r.tarikh))+' · '+esc(r.keluar||'')+'–'+esc(r.masuk||'')+' · '+(r.jarakKm||0).toFixed(1)+' km · '+(r.petak||[]).length+' petak</div>'+
     ((r.ketua||r.kekuatan)?'<div>'+esc(r.ketua||'')+(r.kekuatan?' · '+esc(r.kekuatan):'')+'</div>':'')+
     '<div class="hint" style="font-family:var(--mono);font-size:12px">'+esc(g.join(' → '))+'</div>'+
@@ -767,7 +784,7 @@ function showRonDetailCell(ix,iy){ const el=$('ronDetail'); el.hidden=false; el.
   ronSelLayer.addLayer(L.rectangle([[iy,ix],[iy+1,ix+1]],{color:'#1c63d6',weight:3,fill:false,interactive:false}));
   el.innerHTML='<h2>Sejarah petak</h2><div style="font:600 16px var(--mono)">'+cellRef(ix,iy)+'</div><div class="hint">'+esc(sheetName(ix+.5,iy+.5))+'</div>'+
     (hist.length?'<div class="list">'+hist.map(r=>'<div class="item" data-id="'+esc(r.id)+'" tabindex="0" style="grid-template-columns:12px 1fr auto"><i class="dot" style="background:'+statusCol(r)+'"></i>'+
-      '<div style="min-width:0"><div class="t">'+esc(r.pos)+'</div><div class="m">'+esc(fmtTarikh(r.tarikh))+' · '+esc(statusText(r))+'</div></div>'+
+      '<div style="min-width:0"><div class="t">'+jChip(r)+' '+esc(r.pos)+'</div><div class="m">'+esc(fmtTarikh(r.tarikh))+' · '+esc(statusText(r))+'</div></div>'+
       (w?'<button class="btn ghost" type="button" data-edit="'+esc(r.id)+'" style="padding:6px 10px">Kemaskini</button>':'')+'</div>').join('')+'</div>'
       :'<p class="hint">Petak ini belum pernah dironda atau dirancang.</p>')+
     '<div class="actions"><button class="btn ghost" id="rdTutup" type="button">Tutup</button></div>';
@@ -778,8 +795,8 @@ function showRonDetailCell(ix,iy){ const el=$('ronDetail'); el.hidden=false; el.
 
 $('rCsv').onclick=async()=>{ const em=$('rCsvMsg'); em.hidden=false;
   if(!dlApi){ em.textContent='Muat turun tidak tersedia di paparan ini.'; return; }
-  const rows=[['Tarikh','Status','Keluar','Masuk','Pos','Sektor','Ketua','Kekuatan','Jarak (km)','Bil petak','Petak','Laluan GR','Penemuan','Catatan']].concat(
-    ronFiltered().map(r=>[r.tarikh,isDone(r)?'Dah dironda':'Dirancang',r.keluar||'',r.masuk||'',r.pos,r.sektor||'',r.ketua||'',r.kekuatan||'',(r.jarakKm||0).toFixed(2),(r.petak||[]).length,
+  const rows=[['Tarikh','Jenis','Status','Keluar','Masuk','Pos','Sektor','Ketua','Kekuatan','Jarak (km)','Bil petak','Petak','Laluan GR','Penemuan','Catatan']].concat(
+    ronFiltered().map(r=>[r.tarikh,jk(r)?jNama(r)+' ('+jk(r)+')':'',isDone(r)?'Dah dironda':'Dirancang',r.keluar||'',r.masuk||'',r.pos,r.sektor||'',r.ketua||'',r.kekuatan||'',(r.jarakKm||0).toFixed(2),(r.petak||[]).length,
       (r.petak||[]).map(id=>{ const [ix,iy]=id.slice(1).split('_').map(Number); return cellRef(ix,iy); }).join('; '),
       (r.laluan||[]).map(p=>fmtGR(p.E,p.N,6)).join(' > '),
       (r.penemuan||[]).map(f=>f.jenis+(typeof f.E==='number'?' @ GR '+fmtGR(f.E,f.N,6)+' '+sheetName(f.E,f.N)+' '+gmapsUrl(f.E,f.N):'')+(f.ket?' ('+f.ket+')':'')).join('; '),r.catatan||'']));
