@@ -30,7 +30,8 @@ img{max-width:100%}
   --bar:#0e1311; --bar-ink:#e6ece7; --accent:#f0743a; --accent-ink:#1a0d05; --field:#121815; --chart:#6ea2f0; --chart-grid:#2c3632; color-scheme:dark}
 html,body{height:100%}
 body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;overflow:hidden}
-.app{height:100%;display:grid;grid-template-rows:auto 1fr}
+.app{height:100%;display:grid;grid-template-rows:auto 1fr;grid-template-columns:minmax(0,1fr)}
+.main,aside,#map,.tabs{min-width:0}
 header{background:var(--bar);color:var(--bar-ink);display:flex;align-items:center;gap:12px;flex-wrap:wrap;
   padding-block:10px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
 header h1{font-family:var(--display);font-weight:700;font-size:18px;letter-spacing:.04em;text-transform:uppercase;margin:0;white-space:nowrap}
@@ -55,8 +56,10 @@ label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:60
 input,select,textarea{font:15px var(--body);color:var(--ink);background:var(--field);border:1px solid var(--line);border-radius:6px;padding:8px 10px;width:100%;box-sizing:border-box}
 input.mono{font-family:var(--mono);letter-spacing:.06em}
 textarea{resize:vertical;min-height:56px}
-.row{display:grid;grid-template-columns:92px 1fr;gap:8px}
-.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.row{display:grid;grid-template-columns:92px minmax(0,1fr);gap:8px}
+.row2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}
+.row2>*,.row>*,label.f{min-width:0}
+select{max-width:100%}
 .btn{background:var(--accent);color:var(--accent-ink);border:0;border-radius:6px;padding:10px 14px;font:700 14px var(--body);letter-spacing:.04em;cursor:pointer}
 .btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
 .btn.danger{background:var(--st-larangan);color:#fff}
@@ -122,12 +125,33 @@ h2{font-family:var(--display);font-size:13px;letter-spacing:.08em;text-transform
 .item.sel{background:color-mix(in srgb,var(--accent) 12%,var(--field))}
 .tbl td.n{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
 /* phone */
+.sheet-handle{display:none}
+.jump-float{position:absolute;z-index:900;top:10px;left:max(10px,env(safe-area-inset-left,0px));display:flex;gap:6px}
+.jump-float button{background:rgba(34,48,42,.88);color:#fff;border:0;border-radius:6px;padding:8px 11px;font:700 13px var(--body);box-shadow:0 1px 4px rgba(0,0,0,.3)}
+/* phone: compact header, map takes the screen, panel is a bottom sheet (kecil / separuh / penuh) */
 @media (max-width:820px){
+  header{gap:8px;padding-block:8px}
+  header h1{font-size:15px}
+  header .sub,.user-chip #userName,.user-chip .sync{display:none}
+  header>div:first-child{flex:1;min-width:0}
+  header .grow{display:none}
+  .user-chip button{padding:7px 10px}
+  header .seg{order:5;flex-basis:100%;display:flex}
+  header .seg button{flex:1;padding:10px 6px;font-size:14px}
   .main{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) auto}
-  aside{border-left:0;border-top:1px solid var(--line);max-height:52vh}
-  aside.min .pane{display:none}
-  header .sub{display:none}
+  aside{border-left:0;border-top:1px solid var(--line);border-radius:14px 14px 0 0;box-shadow:0 -4px 14px rgba(0,0,0,.12);transition:height .2s ease;height:46vh;max-height:none}
+  aside[data-sheet="min"]{height:auto}
+  aside[data-sheet="min"] .pane{display:none!important}
+  aside[data-sheet="full"]{height:82vh}
+  .sheet-handle{display:flex;justify-content:center;align-items:center;gap:8px;width:100%;border:0;background:transparent;padding:8px 0 2px;cursor:pointer;color:var(--muted);font:600 12px var(--body)}
+  .sheet-handle span{display:block;width:44px;height:5px;border-radius:3px;background:var(--line)}
+  .tabs{overflow-x:auto;scrollbar-width:none}
+  .tabs button{flex:1 1 auto;padding:10px 4px;font-size:11px;letter-spacing:.02em}
+  .main:has(aside[data-sheet="full"]) .cursor-gr{display:none}
+  .cursor-gr{font-size:11px;max-width:calc(100% - 20px);white-space:normal}
+  .leaflet-bar a{width:42px;height:42px;line-height:42px}
 }
+@media (prefers-reduced-motion:reduce){ aside{transition:none} }
 /* map labels */
 .mk-label{background:rgba(255,255,255,.92);border:1px solid #1d2421;border-radius:3px;color:#1d2421;font:600 11px var(--body);padding:1px 5px;box-shadow:none}
 .mk-label::before{display:none}
@@ -243,9 +267,10 @@ h2{font-family:var(--display);font-size:13px;letter-spacing:.08em;text-transform
   </header>
 
   <div class="main">
-    <div id="map" aria-label="Peta mozek Sektor B"><div class="cursor-gr" id="cursorGr">Gerakkan atau ketik peta</div></div>
+    <div id="map" aria-label="Peta mozek Sektor B"><div class="cursor-gr" id="cursorGr">Ketik peta untuk lihat GR</div></div>
 
-    <aside id="side">
+    <aside id="side" data-sheet="half">
+      <button class="sheet-handle" id="sheetHandle" type="button" aria-label="Besarkan atau kecilkan panel"><span></span><b id="sheetTxt">Besarkan</b></button>
       <div class="tabs" role="tablist">
         <button role="tab" id="tabTanda" aria-selected="true">Tanda</button>
         <button role="tab" id="tabSenarai" aria-selected="false">Senarai</button>
@@ -591,12 +616,23 @@ function setMode(m){ mode=m; ['Titik','Petak','Rondaan'].forEach(x=>$('mode'+x).
   showTab(m==='petak'?'Petak':m==='rondaan'?'Rondaan':'Tanda'); $('map').classList.toggle('leaflet-crosshair',m!=='titik'); drawDraft(); }
 $('modeTitik').onclick=()=>setMode('titik'); $('modePetak').onclick=()=>setMode('petak'); $('modeRondaan').onclick=()=>setMode('rondaan');
 function showTab(t){ ['Tanda','Senarai','Petak','Rondaan','Stat'].forEach(x=>{ $('tab'+x).setAttribute('aria-selected',x===t); $('pane'+x).hidden=x!==t; });
-  $('side').classList.remove('min'); }
+  if($('side').dataset.sheet==='min') setSheet('half'); }
+/* phone bottom sheet */
+const isPhone=()=>window.matchMedia('(max-width:820px)').matches;
+function setSheet(s){ const a=$('side'); a.dataset.sheet=s; $('sheetTxt').textContent=s==='full'?'Kecilkan':s==='min'?'Buka panel':'Besarkan';
+  setTimeout(()=>map.invalidateSize(),260); }
+$('sheetHandle').onclick=()=>{ const s=$('side').dataset.sheet; setSheet(s==='min'?'half':s==='half'?'full':'min'); };
+function placeJump(){ const j=document.querySelector('.jump'); if(!j) return;
+  if(isPhone()){ if(!j.classList.contains('jump-float')){ j.classList.add('jump-float'); $('map').appendChild(j); } }
+  else if(j.classList.contains('jump-float')){ j.classList.remove('jump-float'); document.querySelector('header').appendChild(j); } }
+placeJump(); window.matchMedia('(max-width:820px)').addEventListener('change',()=>{ placeJump(); setTimeout(()=>map.invalidateSize(),100); });
+L.DomEvent.disableClickPropagation(document.querySelector('.jump'));
 $('tabTanda').onclick=()=>setMode('titik'); $('tabSenarai').onclick=()=>showTab('Senarai'); $('tabPetak').onclick=()=>setMode('petak'); $('tabRondaan').onclick=()=>setMode('rondaan'); $('tabStat').onclick=()=>{ showTab('Stat'); renderStat(); };
 document.querySelectorAll('#statusGrid button').forEach(b=>b.onclick=()=>{ status=b.dataset.st;
   document.querySelectorAll('#statusGrid button').forEach(x=>x.setAttribute('aria-pressed',x===b)); });
 
 map.on('click',e=>{ const E=e.latlng.lng,N=e.latlng.lat; if(!inside(E,N)) return;
+  $('cursorGr').textContent=grLabel(E,N)+'  ·  petak '+cellRef(Math.floor(E),Math.floor(N))+'  ·  '+llText(E,N);
   if(mode==='titik'){ const s=sheetAt(E,N); $('fLembar').value=s?s.k:'auto'; $('fGr').value=fmtGR(E,N,6); showWhere(E,N);
     showPick(E,N); showTab('Tanda'); clearMsg(); }
   else if(mode==='rondaan') ronClick(E,N);
