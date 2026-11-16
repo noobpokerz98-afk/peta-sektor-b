@@ -1078,15 +1078,31 @@ async function rajah(list,pos){
   for(let E=Math.ceil(e0);E<=e1;E++){ g.moveTo(X(E)+.5,0); g.lineTo(X(E)+.5,ch); }
   for(let N=Math.ceil(n0);N<=n1;N++){ g.moveTo(0,Y(N)+.5); g.lineTo(cw,Y(N)+.5); }
   g.stroke(); g.restore();
-  // cells: one colour per plan type, outlined, date top-left and PP number below
-  const per={}; list.forEach(r=>(r.petak||[]).forEach(id=>{ if(!per[id]||r.tarikh>per[id].tarikh) per[id]=r; }));
-  const fs=Math.max(12,Math.round(s*0.15));
-  Object.entries(per).forEach(([id,r])=>{ const [ix,iy]=id.slice(1).split('_').map(Number), x=X(ix), y=Y(iy+1);
-    g.globalAlpha=.78; g.fillStyle=PCOL[jk(r)]; g.fillRect(x,y,s,s); g.globalAlpha=1; });
-  Object.entries(per).forEach(([id,r])=>{ const [ix,iy]=id.slice(1).split('_').map(Number), x=X(ix), y=Y(iy+1);
-    g.lineWidth=Math.max(1.5,s/70); g.strokeStyle='#1f2a44'; g.strokeRect(x,y,s,s);
-    const [yy,mm,dd]=r.tarikh.split('-'); g.fillStyle='#000'; g.font='bold '+fs+'px "Times New Roman", Times, serif'; g.textBaseline='top';
-    g.fillText(dd+'/'+mm+'/'+yy.slice(2),x+s*0.06,y+s*0.08); g.fillText('PP '+ppOf(id),x+s*0.06,y+s*0.52); });
+  // cells: every plan date in a cell is shown. One date = whole cell; two dates = diagonal slash (first date top-left, second bottom-right);
+  // three or more = dates listed. Each part takes its own patrol-type colour.
+  const per={}; list.forEach(r=>(r.petak||[]).forEach(id=>{ (per[id]=per[id]||[]); if(!per[id].some(x=>x.tarikh===r.tarikh&&jk(x)===jk(r))) per[id].push(r); }));
+  Object.values(per).forEach(a=>a.sort((p,q)=>p.tarikh.localeCompare(q.tarikh)));
+  const fs=Math.max(12,Math.round(s*0.15)), dt=r=>{ const [yy,mm,dd]=r.tarikh.split('-'); return dd+'/'+mm+'/'+yy.slice(2); };
+  const font=sz=>'bold '+sz+'px "Times New Roman", Times, serif';
+  Object.entries(per).forEach(([id,rs])=>{ const [ix,iy]=id.slice(1).split('_').map(Number), x=X(ix), y=Y(iy+1);
+    g.globalAlpha=.78;
+    if(rs.length===2){ g.fillStyle=PCOL[jk(rs[0])]; g.beginPath(); g.moveTo(x,y); g.lineTo(x+s,y); g.lineTo(x,y+s); g.closePath(); g.fill();
+      g.fillStyle=PCOL[jk(rs[1])]; g.beginPath(); g.moveTo(x+s,y); g.lineTo(x+s,y+s); g.lineTo(x,y+s); g.closePath(); g.fill(); }
+    else { g.fillStyle=PCOL[jk(rs[0])]; g.fillRect(x,y,s,s); }
+    g.globalAlpha=1; });
+  Object.entries(per).forEach(([id,rs])=>{ const [ix,iy]=id.slice(1).split('_').map(Number), x=X(ix), y=Y(iy+1);
+    g.lineWidth=Math.max(1.5,s/70); g.strokeStyle='#1f2a44'; g.strokeRect(x,y,s,s); g.fillStyle='#000';
+    if(rs.length===1){ g.font=font(fs); g.textBaseline='top'; g.textAlign='left';
+      g.fillText(dt(rs[0]),x+s*0.06,y+s*0.08); g.fillText('PP '+ppOf(id),x+s*0.06,y+s*0.52); return; }
+    if(rs.length===2){ const f2=Math.max(10,Math.round(s*0.13));
+      g.beginPath(); g.moveTo(x,y+s); g.lineTo(x+s,y); g.lineWidth=Math.max(1.5,s/80); g.stroke();      // the slash
+      g.font=font(f2); g.textBaseline='top'; g.textAlign='left';
+      g.fillText(dt(rs[0]),x+s*0.05,y+s*0.05); g.font=font(Math.round(f2*0.85)); g.fillText('PP '+ppOf(id),x+s*0.05,y+s*0.05+f2*1.15);
+      g.font=font(f2); g.textBaseline='bottom'; g.textAlign='right'; g.fillText(dt(rs[1]),x+s*0.95,y+s*0.95);
+      g.textAlign='left'; return; }
+    const f3=Math.max(9,Math.round(s*0.11)), show=rs.slice(0,4); g.font=font(f3); g.textBaseline='top'; g.textAlign='left';
+    show.forEach((r,i)=>g.fillText(dt(r)+(i===3&&rs.length>4?' +'+(rs.length-4):''),x+s*0.05,y+s*0.04+i*f3*1.15));
+    g.font=font(Math.round(f3*0.9)); g.textBaseline='bottom'; g.fillText('PP '+ppOf(id),x+s*0.05,y+s*0.96); });
   // pos: dot, arrow line, yellow label box
   if(pm){ const px=X(pm.E), py=Y(pm.N), lab=pm.nama.toUpperCase();
     g.font='bold '+Math.max(11,Math.round(s*0.13))+'px Arial, sans-serif'; const tw=g.measureText(lab).width, bh=s*0.26;
