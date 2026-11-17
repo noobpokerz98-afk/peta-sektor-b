@@ -170,6 +170,20 @@ h2{font-family:var(--display);font-size:13px;letter-spacing:.08em;text-transform
 .legend .pat.plan{border-style:dashed;background:transparent}
 .legend .pat.done{background:color-mix(in srgb,var(--muted) 45%,transparent)}
 #map.zfar .cov-lbl{display:none}
+.ukur-btn{font:700 13px var(--body)!important;letter-spacing:.02em}
+.ukur-btn.on{background:#d4561c!important;color:#fff!important}
+#map.ukur-on{cursor:crosshair}
+.ukur-panel{position:absolute;left:max(10px,env(safe-area-inset-left,0px));top:10px;z-index:950;background:#fff;color:#1d2421;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,.35);padding:10px 12px;width:min(330px,calc(100% - 80px));font:13px var(--body);max-height:60%;overflow:auto}
+.ukur-panel h3{margin:0 0 4px;font-size:14px}
+.ukur-panel .tot{font:700 18px var(--mono);margin:4px 0}
+.ukur-panel ol{margin:4px 0;padding:0;list-style:none;font:12px var(--mono)}
+.ukur-panel ol li{margin:2px 0}
+.ukur-panel .row{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
+.ukur-panel button{font:600 12px var(--body);padding:6px 9px;border-radius:5px;border:1px solid #ccc;background:#f4f4f2;cursor:pointer}
+.ukur-panel button.pri{background:#d4561c;color:#fff;border-color:#d4561c}
+.ukur-panel .hint{color:#666;font-size:12px;margin:2px 0}
+.ukur-lbl span{background:#d4561c;color:#fff;font:700 11px var(--mono);padding:2px 5px;border-radius:4px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.4)}
+.ukur-no span{display:inline-block;background:#fff;color:#d4561c;border:2px solid #d4561c;font:700 11px var(--mono);width:18px;height:18px;line-height:15px;text-align:center;border-radius:50%;transform:translate(-11px,-11px)}
 .cursor-gr{position:absolute;left:max(10px,env(safe-area-inset-left,0px));bottom:10px;z-index:900;background:rgba(29,36,33,.86);color:#fff;font:600 12px var(--mono);padding:5px 8px;border-radius:5px;pointer-events:none}
 /* --- minimal Leaflet 1.9 core styles --- */
 .leaflet-pane,.leaflet-tile,.leaflet-marker-icon,.leaflet-marker-shadow,.leaflet-tile-container,.leaflet-pane>svg,.leaflet-pane>canvas,.leaflet-zoom-box,.leaflet-image-layer,.leaflet-layer{position:absolute;left:0;top:0}
@@ -270,7 +284,14 @@ h2{font-family:var(--display);font-size:13px;letter-spacing:.08em;text-transform
   </header>
 
   <div class="main">
-    <div id="map" aria-label="Peta mozek Sektor B"><div class="cursor-gr" id="cursorGr">Ketik peta untuk lihat GR</div></div>
+    <div id="map" aria-label="Peta mozek Sektor B"><div class="cursor-gr" id="cursorGr">Ketik peta untuk lihat GR</div>
+      <div class="ukur-panel" id="ukurPanel" hidden>
+        <h3>Ukur jarak</h3>
+        <p class="hint" id="ukurHint">Ketik titik pertama atas peta (boleh ketik pos/titik terus).</p>
+        <div class="tot" id="ukurTot">0 m</div>
+        <ol id="ukurSeg"></ol>
+        <div class="row"><button type="button" id="ukurUndo">Buang titik akhir</button><button type="button" id="ukurClear">Kosongkan</button><button type="button" class="pri" id="ukurTutup">Tamat</button></div>
+      </div></div>
 
     <aside id="side" data-sheet="half">
       <button class="sheet-handle" id="sheetHandle" type="button" aria-label="Besarkan atau kecilkan panel"><span></span><b id="sheetTxt">Besarkan</b></button>
@@ -633,6 +654,11 @@ function cellRef(ix,iy){ const em=ix-(ix>=100?100:0), nm=iy>=0?iy:iy+100; const 
 const map = L.map('map',{crs:L.CRS.Simple,minZoom:2,maxZoom:9,zoomSnap:0.5,attributionControl:false,boxZoom:false,
   maxBounds:[[-30,-20],[50,176]],maxBoundsViscosity:0.8,zoomControl:false});
 L.control.zoom({position:'topright'}).addTo(map);
+let ukurOn=false, ukurPts=[]; const ukurLayer=L.layerGroup().addTo(map);
+const UkurCtl=L.Control.extend({options:{position:'topright'},onAdd(){ const d=L.DomUtil.create('div','leaflet-bar');
+  const a=L.DomUtil.create('a','ukur-btn',d); a.href='#'; a.id='ukurBtn'; a.title='Ukur jarak antara titik'; a.setAttribute('role','button'); a.textContent='UKUR';
+  L.DomEvent.disableClickPropagation(d); L.DomEvent.on(a,'click',ev=>{ L.DomEvent.preventDefault(ev); ukurSet(!ukurOn); }); return d; }});
+new UkurCtl().addTo(map);
 const baseLayer=L.tileLayer('tiles/{z}/{x}/{y}.jpg',{tileSize:2048,minNativeZoom:3,maxNativeZoom:7,minZoom:2,maxZoom:9,noWrap:true,bounds:BOUNDS,
   errorTileUrl:'data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw=='}).addTo(map);
 // Retry tiles that failed (e.g. while GitHub Pages is redeploying) instead of leaving the map blank
@@ -682,7 +708,24 @@ $('tabTanda').onclick=()=>setMode('titik'); $('tabSenarai').onclick=()=>showTab(
 document.querySelectorAll('#statusGrid button').forEach(b=>b.onclick=()=>{ status=b.dataset.st;
   document.querySelectorAll('#statusGrid button').forEach(x=>x.setAttribute('aria-pressed',x===b)); });
 
-map.on('click',e=>{ const E=e.latlng.lng,N=e.latlng.lat; if(!inside(E,N)) return;
+function fmtJarak(km){ return km<1?Math.round(km*1000)+' m':km.toFixed(km<10?2:1)+' km'; }
+function arahGrid(a,b){ let d=Math.atan2(b.E-a.E,b.N-a.N)*180/Math.PI; if(d<0) d+=360; return d; }
+function ukurSet(on){ ukurOn=on; $('ukurPanel').hidden=!on; $('map').classList.toggle('ukur-on',on); const b=$('ukurBtn'); if(b) b.classList.toggle('on',on);
+  if(!on){ ukurPts=[]; ukurDraw(); } else ukurDraw(); }
+function ukurAdd(E,N,nama){ ukurPts.push({E,N,nama:nama||''}); ukurDraw(); }
+function ukurDraw(){ ukurLayer.clearLayers(); const P=ukurPts; let tot=0, li=[];
+  if(P.length>1) ukurLayer.addLayer(L.polyline(P.map(p=>[p.N,p.E]),{color:'#d4561c',weight:3,dashArray:'8 6',interactive:false}));
+  P.forEach((p,i)=>{ ukurLayer.addLayer(L.marker([p.N,p.E],{interactive:false,keyboard:false,icon:L.divIcon({className:'ukur-no',html:'<span>'+(i+1)+'</span>',iconSize:null,iconAnchor:[0,0]})}));
+    if(i>0){ const a=P[i-1], d=Math.hypot(p.E-a.E,p.N-a.N), g=arahGrid(a,p); tot+=d;
+      ukurLayer.addLayer(L.marker([(a.N+p.N)/2,(a.E+p.E)/2],{interactive:false,keyboard:false,icon:L.divIcon({className:'ukur-lbl',html:'<span>'+fmtJarak(d)+'</span>',iconSize:null,iconAnchor:[0,0]})}));
+      li.push('<li>'+(i)+'→'+(i+1)+': <b>'+fmtJarak(d)+'</b> · arah '+String(Math.round(g)%360).padStart(3,'0')+'° ('+String(Math.round(g*6400/360)%6400).padStart(4,'0')+' mil)</li>'); } });
+  $('ukurTot').textContent=(P.length>2?'Jumlah ':'')+fmtJarak(tot);
+  $('ukurSeg').innerHTML=P.map((p,i)=>'<li style="color:#555">'+(i+1)+'. GR '+fmtGR(p.E,p.N,6)+(p.nama?' · '+esc(p.nama):'')+'</li>').join('')+li.join('');
+  $('ukurHint').textContent=!P.length?'Ketik titik pertama atas peta (boleh ketik pos/titik terus).':P.length===1?'Ketik titik kedua.':'Ketik lagi untuk tambah titik (jarak dijumlahkan).'; }
+L.DomEvent.disableClickPropagation($('ukurPanel')); L.DomEvent.disableScrollPropagation($('ukurPanel'));
+$('ukurUndo').onclick=()=>{ ukurPts.pop(); ukurDraw(); }; $('ukurClear').onclick=()=>{ ukurPts=[]; ukurDraw(); }; $('ukurTutup').onclick=()=>ukurSet(false);
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&ukurOn) ukurSet(false); });
+map.on('click',e=>{ const E=e.latlng.lng,N=e.latlng.lat; if(ukurOn){ ukurAdd(E,N,''); return; } if(!inside(E,N)) return;
   $('cursorGr').textContent=grLabel(E,N)+'  ·  petak '+cellRef(Math.floor(E),Math.floor(N))+'  ·  '+llText(E,N);
   if(mode==='titik'){ const s=sheetAt(E,N); $('fLembar').value=s?s.k:'auto'; $('fGr').value=fmtGR(E,N,6); showWhere(E,N);
     showPick(E,N); showTab('Tanda'); clearMsg(); }
@@ -789,7 +832,7 @@ function drawMarks(){ markLayer.clearLayers();
   marks.forEach(m=>{ const c=KCOL(m.kategori);
     const cm=L.circleMarker([m.N,m.E],{radius:7,color:'#fff',weight:2,fillColor:c,fillOpacity:1});
     cm.bindTooltip(esc(m.nama),{permanent:true,direction:'right',offset:[8,0],className:'mk-label'});
-    cm.on('click',ev=>{ L.DomEvent.stopPropagation(ev); select(m.id); });
+    cm.on('click',ev=>{ L.DomEvent.stopPropagation(ev); if(ukurOn) return ukurAdd(m.E,m.N,m.nama); select(m.id); });
     markLayer.addLayer(cm); });
   renderList(); if(selected) renderDetail();
   $('posList').innerHTML=marks.filter(m=>m.kategori==='pos').map(m=>'<option value="'+esc(m.nama)+'"></option>').join(''); }
@@ -1378,7 +1421,7 @@ function drawSuluh(){ suluhLayer.clearLayers(); if(mode!=='petak'){ suluhLayer.r
   sFiltered().filter(r=>typeof r.E==='number').forEach(r=>{ const lab=(r.jenis==='LAIN'?(r.lain||'Lain'):r.jenis==='GTC'?'GTC':'Penglihatan')+' '+r.bil;
     const m=L.circleMarker([r.N,r.E],{radius:8,color:'#fff',weight:2,fillColor:SC[r.jenis]||'#333',fillOpacity:1});
     m.bindTooltip(esc(lab)+' · '+esc(r.ktw||''),{permanent:true,direction:'right',offset:[9,0],className:'mk-label'});
-    m.on('click',ev=>{ L.DomEvent.stopPropagation(ev); openSForm(r); }); suluhLayer.addLayer(m); });
+    m.on('click',ev=>{ L.DomEvent.stopPropagation(ev); if(ukurOn) return ukurAdd(r.E,r.N,sNama(r)+' '+r.bil); openSForm(r); }); suluhLayer.addLayer(m); });
   const by={}; sFiltered().filter(r=>typeof r.E!=='number').forEach(r=>{ by[r.pos]=(by[r.pos]||0)+1; });
   Object.entries(by).forEach(([p,n])=>{ const pm=marks.find(m=>m.kategori==='pos'&&m.nama===p); if(!pm) return;
     suluhLayer.addLayer(L.marker([pm.N,pm.E],{interactive:false,keyboard:false,icon:L.divIcon({className:'tb-icon',html:'<span style="background:#e8590c">'+n+' laporan</span>',iconSize:null,iconAnchor:[0,0]})})); }); }
