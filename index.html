@@ -1304,14 +1304,20 @@ const sNama=r=>r.jenis==='LAIN'?(r.lain||'Lain-lain'):JL[r.jenis]||r.jenis;
 const sKey=(j,l)=>j==='LAIN'?'LAIN:'+String(l||'').trim().toLowerCase():j;
 function ktwOf(v){ if(!v) return ''; const [d,t]=v.split('T'); const [y,m,dd]=d.split('-'); return dd+t.replace(':','')+'H '+BLN3[+m-1]+' '+y.slice(2); }
 function nowLocal(){ const d=new Date(); return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate())+'T'+pad2(d.getHours())+':'+pad2(d.getMinutes()); }
-function sBase(){ const pm=marks.find(m=>m.kategori==='pos'&&m.nama===$('sPos').value); return SEK_BASE[(pm&&pm.sektor)||'B1']||'AG'; }
+function sBase(){ return SEK_BASE[posSektor($('sPos').value)||'B1']||'AG'; }
 function sGrInfo(E,N){ $('sGrInfo').innerHTML='Lokasi: <b>'+esc(sheetName(E,N))+'</b> · '+llText(E,N)+' · '+gmapsLink(E,N); }
 function fillSPos(want){ const ps=posNames(), cur=want!==undefined?want:$('sPos').value;
   $('sPos').innerHTML=ps.length?ps.map(p=>'<option>'+esc(p)+'</option>').join(''):'<option value="">Memuat senarai pos…</option>';
   if(cur&&!ps.includes(cur)) $('sPos').insertAdjacentHTML('afterbegin','<option>'+esc(cur)+'</option>');
   $('sPos').value=cur||(ps[0]||''); }
 $('sPos').addEventListener('focus',()=>fillSPos()); $('sPos').addEventListener('mousedown',()=>{ if(!posNames().includes($('sPos').value)) fillSPos(); });
-function posNames(){ return [...new Set(marks.filter(m=>m.kategori==='pos').map(m=>m.nama))].sort(); }
+const POS_TETAP=[['Pos Balai Ringin','B1'],['Pos Tong Nibong','B1'],['Pos Sg Paoh','B1'],['Pos Rapak Baru','B2'],['Pos Melikin','B2'],['Pos GABMA Lubok Antu','B3'],['Pos Nanga San','B3'],['Pos Batu Kaya','B3'],['Pos Ensawang','B3']];
+const isPos=m=>m&&(String(m.kategori||'').trim().toLowerCase()==='pos'||/^\s*pos\b/i.test(String(m.nama||'')));
+function posNames(){ const s=new Set(POS_TETAP.map(p=>p[0]));
+  (marks||[]).forEach(m=>{ if(isPos(m)&&m.nama) s.add(String(m.nama).trim()); });
+  (typeof rons!=='undefined'&&Array.isArray(rons)?rons:[]).forEach(r=>{ if(r&&r.pos) s.add(String(r.pos).trim()); });
+  return [...s].filter(Boolean).sort((a,b)=>a.localeCompare(b)); }
+function posSektor(n){ const m=(marks||[]).find(x=>isPos(x)&&String(x.nama).trim()===n); if(m&&m.sektor) return m.sektor; const t=POS_TETAP.find(p=>p[0]===n); return t?t[1]:''; }
 function nextBil(){ const k=sKey($('sJenis').value,$('sLain').value); return suluh.filter(r=>r.id!==sEditId&&sKey(r.jenis,r.lain)===k).reduce((a,r)=>Math.max(a,+r.bil||0),0)+1; }
 function syncSForm(){ $('sLainBox').hidden=$('sJenis').value!=='LAIN';
   if(!sEditId) $('sBil').textContent=sNama({jenis:$('sJenis').value,lain:$('sLain').value})+' ke-'+nextBil();
@@ -1338,7 +1344,7 @@ $('sSimpan').onclick=async()=>{ $('sErr').hidden=true;
   const old=sEditId?suluh.find(x=>x.id===sEditId):null;
   const bil=old&&sKey(old.jenis,old.lain)===sKey(jenis,lain)?old.bil:nextBil();
   const pm=marks.find(m=>m.kategori==='pos'&&m.nama===pos);
-  const rec={jenis,lain:jenis==='LAIN'?lain:'',jenisNama:sNama({jenis,lain}),bil,pos,sektor:pm?pm.sektor||'':'',ktwIso:kt,ktw:ktwOf(kt),catatan:$('sCat').value.trim()};
+  const rec={jenis,lain:jenis==='LAIN'?lain:'',jenisNama:sNama({jenis,lain}),bil,pos,sektor:posSektor(pos),ktwIso:kt,ktw:ktwOf(kt),catatan:$('sCat').value.trim()};
   if($('sGr').value.trim()){ const g=parseGR(sBase(),$('sGr').value); if(g.err) return msg('sErr','GR: '+g.err);
     const dg=$('sGr').value.replace(/\D/g,'').length; Object.assign(rec,{E:+g.E.toFixed(4),N:+g.N.toFixed(4),gr:fmtGR(g.E,g.N,dg),lembar:(sheetAt(g.E,g.N)||{}).k||''}); }
   $('sSimpan').disabled=true;
