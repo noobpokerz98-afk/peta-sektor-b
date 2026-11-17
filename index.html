@@ -118,6 +118,9 @@ h2{font-family:var(--display);font-size:13px;letter-spacing:.08em;text-transform
 .stat-tiles span{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
 .tbl{width:100%;border-collapse:collapse;font-size:13px}
 .tbl td,.tbl th{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left}
+.tbl.heat td.h{text-align:center;font-family:var(--mono);min-width:44px}
+.tbl.heat th{text-align:center}
+.tbl.heat th:first-child{text-align:left}
 .tbl th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
 .tb-icon{width:0!important;height:0!important}
 .tb-icon span{display:inline-block;transform:translate(-50%,-50%);white-space:nowrap;font:700 11px var(--mono);color:#fff;background:#111;border:2px solid #fff;border-radius:4px;padding:1px 5px;box-shadow:0 1px 3px rgba(0,0,0,.4)}
@@ -464,6 +467,33 @@ h2{font-family:var(--display);font-size:13px;letter-spacing:.08em;text-transform
         <h2>Senarai terkini</h2>
         <div class="list" id="stList"></div>
         <p class="hint" id="stNota" hidden></p>
+
+        <h2 style="margin-top:22px;border-top:2px solid var(--line);padding-top:14px">Statistik Op SULUH KENYALANG</h2>
+        <p class="hint">Dikira dari KTW setiap laporan Op Suluh.</p>
+        <div class="row2">
+          <select id="ssJenis" aria-label="Jenis laporan"><option value="">Semua jenis</option><option value="PENGLIHATAN">Laporan Penglihatan</option><option value="GTC">Laporan GTC</option><option value="LAIN">Lain-lain</option></select>
+          <select id="ssSek" aria-label="Sektor"><option value="">Semua sektor</option><option>B1</option><option>B2</option><option>B3</option></select>
+        </div>
+        <div class="row2">
+          <select id="ssPos" aria-label="Pos"><option value="">Semua pos</option></select>
+          <select id="ssHari" aria-label="Tempoh"><option value="7">7 hari lepas</option><option value="30" selected>30 hari lepas</option><option value="90">90 hari lepas</option><option value="0">Semua</option></select>
+        </div>
+        <div class="stat-tiles">
+          <div><b id="ssJumlah">0</b><span>Laporan dalam tempoh</span></div>
+          <div><b id="ss7">0</b><span>7 hari lepas</span></div>
+          <div><b id="ssJam">–</b><span>Waktu paling kerap</span></div>
+          <div><b id="ssHariK">–</b><span>Hari paling kerap</span></div>
+        </div>
+        <div class="chart" id="chSJam"></div>
+        <div class="chart" id="chSHari"></div>
+        <div class="chart" id="chSTarikh"></div>
+        <h2>Ikut sektor</h2>
+        <div style="overflow-x:auto"><table class="tbl" id="tbSSek"></table></div>
+        <h2>Ikut pos</h2>
+        <div style="overflow-x:auto"><table class="tbl" id="tbSPos"></table></div>
+        <h2>Kekerapan waktu ikut pos</h2>
+        <p class="hint">Bilangan laporan dalam setiap blok 4 jam. Makin gelap, makin kerap.</p>
+        <div style="overflow-x:auto"><table class="tbl heat" id="tbSHeat"></table></div>
       </section>
 
       <!-- RONDAAN -->
@@ -1125,8 +1155,39 @@ function renderStat(){ const rows=statRows(), all7=rows.filter(m=>ageDays(m._t)<
     '<span class="gr">'+fmtGR(m.E,m.N,6)+'</span></div>').join(''):'<div class="empty">Tiada sasaran dalam tempoh ini. Tanda titik dengan kategori Sasaran dan isi tarikh serta masa kejadian.</div>';
   $('stList').querySelectorAll('.item').forEach(it=>{ it.onclick=()=>select(it.dataset.id); it.onkeydown=e=>{ if(e.key==='Enter') select(it.dataset.id); }; });
   const ang=rows.filter(m=>m._anggar).length; $('stNota').hidden=!ang;
-  $('stNota').textContent=ang+' rekod belum ada tarikh/masa kejadian, jadi tarikh simpan digunakan dan waktunya tidak dikira. Buka rekod tu dan tekan Kemaskini untuk isi.'; }
+  $('stNota').textContent=ang+' rekod belum ada tarikh/masa kejadian, jadi tarikh simpan digunakan dan waktunya tidak dikira. Buka rekod tu dan tekan Kemaskini untuk isi.'; renderSuluhStat(); }
 ['sKat','sSek','sHari'].forEach(id=>$(id).onchange=renderStat);
+const HARI_P=['Ahad','Isnin','Selasa','Rabu','Khamis','Jumaat','Sabtu'];
+function ssRows(){ const j=$('ssJenis').value, s=$('ssSek').value, p=$('ssPos').value, nd=+$('ssHari').value;
+  return suluh.filter(r=>/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(r.ktwIso||'')).map(r=>Object.assign({},r,{_t:r.ktwIso.slice(0,10),_h:+r.ktwIso.slice(11,13),_s:r.sektor||posSektor(r.pos)||'Lain'}))
+    .filter(r=>(!j||r.jenis===j)&&(!s||r._s===s)&&(!p||r.pos===p)&&(!nd||(ageDays(r._t)>=0&&ageDays(r._t)<nd))); }
+function jamKerap(rs){ const a=Array(24).fill(0); rs.forEach(r=>a[r._h]++); const m=Math.max(...a); if(!m) return '–'; const i=a.indexOf(m); return pad2(i)+'00–'+pad2((i+1)%24)+'00'; }
+function renderSuluhStat(){ if(!$('ssPos')) return;
+  const cur=$('ssPos').value, ps=[...new Set(suluh.map(r=>r.pos).filter(Boolean))].sort();
+  $('ssPos').innerHTML='<option value="">Semua pos</option>'+ps.map(p=>'<option>'+esc(p)+'</option>').join(''); $('ssPos').value=ps.includes(cur)?cur:'';
+  const rows=ssRows();
+  $('ssJumlah').textContent=rows.length; $('ss7').textContent=rows.filter(r=>ageDays(r._t)>=0&&ageDays(r._t)<7).length;
+  const jam=Array(24).fill(0), hari=Array(7).fill(0); rows.forEach(r=>{ jam[r._h]++; hari[new Date(r._t+'T00:00:00').getDay()]++; });
+  $('ssJam').textContent=jamKerap(rows); $('ssHariK').textContent=Math.max(...hari)?HARI_P[hari.indexOf(Math.max(...hari))]:'–';
+  barChart($('chSJam'),'Ikut waktu (jam)',jam.map((_,i)=>pad2(i)),jam,3,(l,v)=>'Jam '+l+'00–'+l+'59: '+v);
+  barChart($('chSHari'),'Ikut hari',HARI,hari,1,(l,v)=>l+': '+v);
+  const nd=+$('ssHari').value||30, days=[], vals=[];
+  for(let i=nd-1;i>=0;i--){ const d=new Date(); d.setDate(d.getDate()-i); const s=d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); days.push(s); vals.push(rows.filter(r=>r._t===s).length); }
+  barChart($('chSTarikh'),'Ikut tarikh ('+nd+' hari)',days.map(s=>s.slice(8,10)+'/'+s.slice(5,7)),vals,Math.max(1,Math.ceil(nd/8)),(l,v)=>l+': '+v);
+  const grp=(key)=>{ const g={}; rows.forEach(r=>{ const k=key(r); (g[k]=g[k]||[]).push(r); }); return g; };
+  const cnt=(rs,j)=>rs.filter(r=>r.jenis===j).length, TH='<th style="text-align:right">';
+  const sek=grp(r=>r._s);
+  $('tbSSek').innerHTML='<tr><th>Sektor</th>'+TH+'Bil</th>'+TH+'Penglihatan</th>'+TH+'GTC</th>'+TH+'Lain</th><th>Waktu kerap</th></tr>'+
+    (Object.keys(sek).sort().map(k=>'<tr><td>'+esc(k)+'</td><td class="n"><b>'+sek[k].length+'</b></td><td class="n">'+cnt(sek[k],'PENGLIHATAN')+'</td><td class="n">'+cnt(sek[k],'GTC')+'</td><td class="n">'+cnt(sek[k],'LAIN')+'</td><td class="n" style="text-align:left">'+jamKerap(sek[k])+'</td></tr>').join('')||'<tr><td colspan="6" class="hint">Tiada laporan dalam tempoh ini.</td></tr>');
+  const pos=grp(r=>r.pos||'(tiada pos)'), pk=Object.keys(pos).sort((a,b)=>pos[b].length-pos[a].length||a.localeCompare(b));
+  $('tbSPos').innerHTML='<tr><th>Pos</th><th>Sektor</th>'+TH+'Bil</th>'+TH+'Penglihatan</th>'+TH+'GTC</th>'+TH+'Lain</th><th>Waktu kerap</th><th>Terakhir</th></tr>'+
+    (pk.map(k=>{ const rs=pos[k], last=rs.slice().sort((a,b)=>b.ktwIso.localeCompare(a.ktwIso))[0];
+      return '<tr><td style="white-space:nowrap">'+esc(k.replace(/^Pos /,''))+'</td><td>'+esc(rs[0]._s)+'</td><td class="n"><b>'+rs.length+'</b></td><td class="n">'+cnt(rs,'PENGLIHATAN')+'</td><td class="n">'+cnt(rs,'GTC')+'</td><td class="n">'+cnt(rs,'LAIN')+'</td><td class="n" style="text-align:left">'+jamKerap(rs)+'</td><td class="n" style="text-align:left">'+esc(last.ktw||'')+'</td></tr>'; }).join('')||'<tr><td colspan="8" class="hint">Tiada laporan dalam tempoh ini.</td></tr>');
+  const BL=['0000–0359','0400–0759','0800–1159','1200–1559','1600–1959','2000–2359'];
+  let mx=1; const M=pk.map(k=>{ const a=Array(6).fill(0); pos[k].forEach(r=>a[Math.floor(r._h/4)]++); mx=Math.max(mx,...a); return a; });
+  $('tbSHeat').innerHTML='<tr><th>Pos</th>'+BL.map(b=>'<th>'+b+'</th>').join('')+'</tr>'+
+    (pk.map((k,i)=>'<tr><td style="white-space:nowrap">'+esc(k.replace(/^Pos /,''))+'</td>'+M[i].map(v=>{ const t=v/mx; return '<td class="h" style="background:'+(v?'rgba(212,86,28,'+(0.15+0.75*t).toFixed(2)+')':'transparent')+';color:'+(t>0.55?'#fff':'inherit')+'">'+(v||'·')+'</td>'; }).join('')+'</tr>').join('')||'<tr><td colspan="7" class="hint">Tiada laporan dalam tempoh ini.</td></tr>'); }
+['ssJenis','ssSek','ssPos','ssHari'].forEach(id=>$(id).onchange=renderSuluhStat);
 
 /* ---- cetak rancangan ronda ikut pos ---- */
 const BULAN=['JANUARI','FEBRUARI','MAC','APRIL','MEI','JUN','JULAI','OGOS','SEPTEMBER','OKTOBER','NOVEMBER','DISEMBER'];
@@ -1406,7 +1467,7 @@ $('sPadam').onclick=async()=>{ if(!sEditId) return; const r=suluh.find(x=>x.id==
 function sFiltered(){ const j=$('sfJenis').value, p=$('sfPos').value, hr=+$('sfHari').value;
   return suluh.filter(r=>(!j||r.jenis===j)&&(!p||r.pos===p)&&(!hr||!r.ktwIso||ageDays(r.ktwIso.slice(0,10))<=hr))
     .sort((a,b)=>String(b.ktwIso||'').localeCompare(String(a.ktwIso||''))); }
-function renderSuluh(){ $('sMissing').hidden=suluhOn;
+function renderSuluh(){ $('sMissing').hidden=suluhOn; if(!$('paneStat').hidden) renderSuluhStat();
   const cur=$('sfPos').value, ps=posNames(); $('sfPos').innerHTML='<option value="">Semua pos</option>'+ps.map(p=>'<option'+(p===cur?' selected':'')+'>'+esc(p)+'</option>').join('');
   const L2=sFiltered(), w=db&&canWrite!==false;
   $('sCounts').innerHTML=['PENGLIHATAN','GTC','LAIN'].map(k=>'<div><b>'+L2.filter(r=>r.jenis===k).length+'</b>'+(k==='LAIN'?'Lain-lain':k==='GTC'?'GTC':'Penglihatan')+'</div>').join('')+'<div><b>'+L2.length+'</b>Jumlah</div>';
