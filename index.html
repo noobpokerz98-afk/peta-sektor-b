@@ -1306,6 +1306,11 @@ function ktwOf(v){ if(!v) return ''; const [d,t]=v.split('T'); const [y,m,dd]=d.
 function nowLocal(){ const d=new Date(); return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate())+'T'+pad2(d.getHours())+':'+pad2(d.getMinutes()); }
 function sBase(){ const pm=marks.find(m=>m.kategori==='pos'&&m.nama===$('sPos').value); return SEK_BASE[(pm&&pm.sektor)||'B1']||'AG'; }
 function sGrInfo(E,N){ $('sGrInfo').innerHTML='Lokasi: <b>'+esc(sheetName(E,N))+'</b> · '+llText(E,N)+' · '+gmapsLink(E,N); }
+function fillSPos(want){ const ps=posNames(), cur=want!==undefined?want:$('sPos').value;
+  $('sPos').innerHTML=ps.length?ps.map(p=>'<option>'+esc(p)+'</option>').join(''):'<option value="">Memuat senarai pos…</option>';
+  if(cur&&!ps.includes(cur)) $('sPos').insertAdjacentHTML('afterbegin','<option>'+esc(cur)+'</option>');
+  $('sPos').value=cur||(ps[0]||''); }
+$('sPos').addEventListener('focus',()=>fillSPos()); $('sPos').addEventListener('mousedown',()=>{ if(!posNames().includes($('sPos').value)) fillSPos(); });
 function posNames(){ return [...new Set(marks.filter(m=>m.kategori==='pos').map(m=>m.nama))].sort(); }
 function nextBil(){ const k=sKey($('sJenis').value,$('sLain').value); return suluh.filter(r=>r.id!==sEditId&&sKey(r.jenis,r.lain)===k).reduce((a,r)=>Math.max(a,+r.bil||0),0)+1; }
 function syncSForm(){ $('sLainBox').hidden=$('sJenis').value!=='LAIN';
@@ -1313,8 +1318,8 @@ function syncSForm(){ $('sLainBox').hidden=$('sJenis').value!=='LAIN';
   $('sKtwTxt').textContent=ktwOf($('sKtw').value)||'–'; }
 ['sJenis','sLain','sKtw'].forEach(id=>$(id).addEventListener('input',syncSForm)); $('sJenis').addEventListener('change',syncSForm);
 function openSForm(r){ sEditId=r?r.id:null; sPadamOk=false; $('sErr').hidden=true; $('sOk').hidden=true;
-  const ps=posNames(); $('sPos').innerHTML=ps.map(p=>'<option>'+esc(p)+'</option>').join('')||'<option value="">Tiada pos</option>';
-  $('sJenis').value=r?r.jenis:'PENGLIHATAN'; $('sLain').value=r?(r.lain||''):''; $('sPos').value=r?r.pos:(ps[0]||'');
+  fillSPos(r?(r.pos||''):'');
+  $('sJenis').value=r?r.jenis:'PENGLIHATAN'; $('sLain').value=r?(r.lain||''):'';
   $('sKtw').value=r?(r.ktwIso||''):nowLocal(); $('sCat').value=r?(r.catatan||''):'';
   $('sGr').value=r&&typeof r.E==='number'?(r.gr||fmtGR(r.E,r.N,6)):''; $('sGrInfo').textContent='Semasa borang ni dibuka, ketik peta untuk isi GR lokasi.'; if(r&&typeof r.E==='number'){ sGrInfo(r.E,r.N); showPick(r.E,r.N); }
   $('sFormTitle').textContent=r?'Kemaskini '+sNama(r)+' ke-'+r.bil:'Laporan baru';
@@ -1326,6 +1331,7 @@ $('sGrLihat').onclick=()=>{ $('sErr').hidden=true; const p=parseGR(sBase(),$('sG
 $('sBaru').onclick=()=>openSForm(null); $('sBatal').onclick=closeSForm;
 $('sSimpan').onclick=async()=>{ $('sErr').hidden=true;
   if(!suluhOn) return msg('sErr','Simpanan laporan belum aktif. Kemas kini PetaApi.gs dalam Apps Script dahulu.');
+  if(!$('sPos').value) fillSPos();
   const jenis=$('sJenis').value, lain=$('sLain').value.trim(), pos=$('sPos').value, kt=$('sKtw').value;
   if(jenis==='LAIN'&&!lain) return msg('sErr','Nyatakan jenis laporan.');
   if(!pos) return msg('sErr','Pilih lokasi pos.'); if(!kt) return msg('sErr','Isi KTW.');
@@ -1399,7 +1405,7 @@ async function muat(){ if(loading||!token) return; loading=true; $('syncTxt').te
   try{ const j=await api('data');
     marks=(j.marks||[]).filter(m=>typeof m.E==='number'&&typeof m.N==='number')
       .sort((a,b)=>(a.sektor||'Z').localeCompare(b.sektor||'Z')||String(a.nama).localeCompare(String(b.nama)));
-    drawMarks(); if(!$('paneStat').hidden) renderStat();
+    drawMarks(); if(!$('paneStat').hidden) renderStat(); if(!$('sForm').hidden) fillSPos();
     cells={}; (j.petak||[]).forEach(v=>{ if(v&&typeof v.ix==='number') cells[v.id]=v; }); drawCells();
     suluhOn=Array.isArray(j.suluh); suluh=(j.suluh||[]).filter(r=>r&&r.jenis); renderSuluh();
     rons=(j.rondaan||[]).filter(r=>r&&typeof r.tarikh==='string'&&Array.isArray(r.petak))
