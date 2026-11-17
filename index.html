@@ -121,6 +121,9 @@ h2{font-family:var(--display);font-size:13px;letter-spacing:.08em;text-transform
 .tbl.heat td.h{text-align:center;font-family:var(--mono);min-width:44px}
 .tbl.heat th{text-align:center}
 .tbl.heat th:first-child{text-align:left}
+.seg-stat{display:flex;gap:0;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-bottom:12px}
+.seg-stat button{flex:1;padding:9px 6px;border:0;background:transparent;color:inherit;font:700 13px var(--body);cursor:pointer}
+.seg-stat button.on{background:#d4561c;color:#fff}
 .tbl th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
 .tb-icon{width:0!important;height:0!important}
 .tb-icon span{display:inline-block;transform:translate(-50%,-50%);white-space:nowrap;font:700 11px var(--mono);color:#fff;background:#111;border:2px solid #fff;border-radius:4px;padding:1px 5px;box-shadow:0 1px 3px rgba(0,0,0,.4)}
@@ -446,6 +449,8 @@ h2{font-family:var(--display);font-size:13px;letter-spacing:.08em;text-transform
 
       <!-- STATISTIK -->
       <section class="pane" id="paneStat" hidden>
+        <div class="seg-stat" role="tablist"><button type="button" id="stBtnSul" class="on">Op SULUH KENYALANG</button><button type="button" id="stBtnSas">Sasaran / Insiden</button></div>
+        <div id="stSasaran" hidden>
         <h2>Statistik sasaran</h2>
         <p class="hint">Dikira dari tarikh dan masa kejadian yang diisi semasa tanda titik Sasaran atau Insiden.</p>
         <div class="row2">
@@ -467,8 +472,9 @@ h2{font-family:var(--display);font-size:13px;letter-spacing:.08em;text-transform
         <h2>Senarai terkini</h2>
         <div class="list" id="stList"></div>
         <p class="hint" id="stNota" hidden></p>
-
-        <h2 style="margin-top:22px;border-top:2px solid var(--line);padding-top:14px">Statistik Op SULUH KENYALANG</h2>
+        </div>
+        <div id="stSuluh">
+        <h2>Statistik Op SULUH KENYALANG</h2>
         <p class="hint">Dikira dari KTW setiap laporan Op Suluh.</p>
         <div class="row2">
           <select id="ssJenis" aria-label="Jenis laporan"><option value="">Semua jenis</option><option value="PENGLIHATAN">Laporan Penglihatan</option><option value="GTC">Laporan GTC</option><option value="LAIN">Lain-lain</option></select>
@@ -494,6 +500,7 @@ h2{font-family:var(--display);font-size:13px;letter-spacing:.08em;text-transform
         <h2>Kekerapan waktu ikut pos</h2>
         <p class="hint">Bilangan laporan dalam setiap blok 4 jam. Makin gelap, makin kerap.</p>
         <div style="overflow-x:auto"><table class="tbl heat" id="tbSHeat"></table></div>
+        </div>
       </section>
 
       <!-- RONDAAN -->
@@ -1188,6 +1195,8 @@ function renderSuluhStat(){ if(!$('ssPos')) return;
   $('tbSHeat').innerHTML='<tr><th>Pos</th>'+BL.map(b=>'<th>'+b+'</th>').join('')+'</tr>'+
     (pk.map((k,i)=>'<tr><td style="white-space:nowrap">'+esc(k.replace(/^Pos /,''))+'</td>'+M[i].map(v=>{ const t=v/mx; return '<td class="h" style="background:'+(v?'rgba(212,86,28,'+(0.15+0.75*t).toFixed(2)+')':'transparent')+';color:'+(t>0.55?'#fff':'inherit')+'">'+(v||'·')+'</td>'; }).join('')+'</tr>').join('')||'<tr><td colspan="7" class="hint">Tiada laporan dalam tempoh ini.</td></tr>'); }
 ['ssJenis','ssSek','ssPos','ssHari'].forEach(id=>$(id).onchange=renderSuluhStat);
+function stView(s){ $('stSuluh').hidden=!s; $('stSasaran').hidden=s; $('stBtnSul').classList.toggle('on',s); $('stBtnSas').classList.toggle('on',!s); }
+$('stBtnSul').onclick=()=>stView(true); $('stBtnSas').onclick=()=>stView(false);
 
 /* ---- cetak rancangan ronda ikut pos ---- */
 const BULAN=['JANUARI','FEBRUARI','MAC','APRIL','MEI','JUN','JULAI','OGOS','SEPTEMBER','OKTOBER','NOVEMBER','DISEMBER'];
@@ -1517,6 +1526,10 @@ db={ collection:col=>({
   doc:id=>({ set:async rec=>{ await api('simpan',{col,id,rec}); muat(); }, delete:async()=>{ await api('padam',{col,id}); muat(); } }) }) };
 dlApi={ save:async({filename,data})=>{ const u=URL.createObjectURL(data), a=document.createElement('a'); a.href=u; a.download=filename; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),5000); } };
 
+const APP_VER='202611171604';
+(async()=>{ try{ const t=await fetch(location.pathname+'?cek='+Date.now(),{cache:'no-store'}).then(r=>r.text()); const m=t.match(/APP_VER='(\d+)'/);
+  if(m&&m[1]!==APP_VER){ const k='verReload'; let n=0; try{ n=+sessionStorage.getItem(k)||0; }catch(e){}
+    if(n<2){ try{ sessionStorage.setItem(k,n+1); }catch(e){} location.replace(location.pathname+'?v='+m[1]+location.hash); } } }catch(e){} })();
 async function muat(){ if(loading||!token) return; loading=true; $('syncTxt').textContent='Mengemas kini…';
   try{ const j=await api('data');
     marks=(j.marks||[]).filter(m=>typeof m.E==='number'&&typeof m.N==='number')
