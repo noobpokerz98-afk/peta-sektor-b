@@ -1281,7 +1281,8 @@ function renderSuluhStat(){ if(!$('ssPos')) return;
 /* ---- slide PowerPoint statistik Op Suluh ---- */
 function loadScript(src){ return new Promise((ok,no)=>{ const s=document.createElement('script'); s.src=src; s.onload=ok; s.onerror=()=>no(new Error('Gagal muat pustaka PowerPoint. Semak sambungan internet.')); document.head.appendChild(s); }); }
 async function suluhPptx(){
-  if(!window.PptxGenJS) await loadScript('https://cdnjs.cloudflare.com/ajax/libs/pptxgenjs/3.12.0/pptxgen.bundle.js');
+  if(!window.PptxGenJS){ try{ await loadScript('https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js'); }catch(e){ await loadScript('https://unpkg.com/pptxgenjs@3.12.0/dist/pptxgen.bundle.js'); } }
+  if(!window.PptxGenJS) throw new Error('Gagal muat pustaka PowerPoint. Semak sambungan internet.');
   const rows=ssRows(); if(!rows.length) throw new Error('Tiada laporan Op Suluh dalam tapisan ini.');
   const kelas=$('ssKelas').value, nd=+$('ssHari').value;
   const tapis=[$('ssJenis').value?$('ssJenis').selectedOptions[0].text:'Semua jenis', $('ssSek').value?'Sektor '+$('ssSek').value:'Semua sektor', $('ssPos').value||'Semua pos'].join(' · ');
@@ -1696,7 +1697,7 @@ db={ collection:col=>({
   doc:id=>({ set:async rec=>{ await api('simpan',{col,id,rec}); muat(); }, delete:async()=>{ await api('padam',{col,id}); muat(); } }) }) };
 dlApi={ save:async({filename,data})=>{ const u=URL.createObjectURL(data), a=document.createElement('a'); a.href=u; a.download=filename; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),5000); } };
 
-const APP_VER='202611201526';
+const APP_VER='202611201532';
 (async()=>{ try{ const t=await fetch(location.pathname+'?cek='+Date.now(),{cache:'no-store'}).then(r=>r.text()); const m=t.match(/APP_VER='(\d+)'/);
   if(m&&m[1]!==APP_VER){ const k='verReload'; let n=0; try{ n=+sessionStorage.getItem(k)||0; }catch(e){}
     if(n<2){ try{ sessionStorage.setItem(k,n+1); }catch(e){} location.replace(location.pathname+'?v='+m[1]+location.hash); } } }catch(e){} })();
